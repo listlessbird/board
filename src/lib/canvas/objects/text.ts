@@ -10,11 +10,38 @@ export class TextObject extends BaseObject {
     super("text", position);
     this.content = content;
     this.font = "20px Geist Mono";
-    this.color = "#000000";
+    this.color = "#ffffff";
   }
 
   render(ctx: CanvasRenderingContext2D): void {
     ctx.save();
+
+    ctx.translate(this.transform.position.x, this.transform.position.y);
+    ctx.rotate(this.transform.rotation);
+    ctx.scale(this.transform.scale, this.transform.scale);
+
+    ctx.font = this.font;
+    ctx.fillStyle = this.selected ? "#0066ff" : this.color;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+
+    ctx.fillText(this.content, 0, 0);
+
+    if (this.selected) {
+      const bounds = this.getBounds();
+
+      ctx.strokeStyle = "#0066ff77";
+      ctx.setLineDash([5, 5]);
+
+      ctx.strokeRect(
+        bounds.left,
+        bounds.top,
+        bounds.right - bounds.left,
+        bounds.bottom - bounds.top
+      );
+    }
+
+    ctx.restore();
   }
 
   getBounds(): Bounds {

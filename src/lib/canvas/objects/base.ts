@@ -2,17 +2,19 @@ import {
   Bounds,
   CanvasObject,
   CanvasObjectType,
-  Postition,
+  ControlPointType,
+  Position,
   Transform,
+  Transformable,
 } from "@/types";
 
-export abstract class BaseObject implements CanvasObject {
+export abstract class BaseObject implements CanvasObject, Transformable {
   id: string;
   type: CanvasObjectType;
   transform: Transform;
   selected: boolean;
 
-  constructor(type: CanvasObjectType, position: Postition) {
+  constructor(type: CanvasObjectType, position: Position) {
     this.id = Date.now().toString();
     this.type = type;
     this.transform = {
@@ -23,7 +25,25 @@ export abstract class BaseObject implements CanvasObject {
     this.selected = false;
   }
 
+  getTransform(): Transform {
+    return {
+      position: { ...this.transform.position },
+      rotation: this.transform.rotation,
+      scale: this.transform.scale,
+    };
+  }
+
+  setTransform(transform: Transform): void {
+    this.transform = {
+      position: { ...transform.position },
+      rotation: transform.rotation,
+      scale: transform.scale,
+    };
+  }
+
   abstract render(ctx: CanvasRenderingContext2D): void;
   abstract getBounds(): Bounds;
-  abstract containsPoint(point: Postition): boolean;
+  abstract containsPoint(point: Position): boolean;
+  abstract transformPointToLocal(point: Position): Position;
+  abstract getControlPointAtPosition(point: Position): ControlPointType;
 }

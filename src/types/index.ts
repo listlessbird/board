@@ -1,4 +1,4 @@
-export interface Postition {
+export interface Position {
   x: number;
   y: number;
 }
@@ -9,7 +9,7 @@ export interface Dimensions {
 }
 
 export interface Transform {
-  position: Postition;
+  position: Position;
   rotation: number;
   scale: number;
 }
@@ -29,4 +29,32 @@ export interface CanvasObject {
   type: CanvasObjectType;
   transform: Transform;
   selected: boolean;
+}
+
+export enum ControlPointType {
+  None = -1,
+  TopLeft = 0,
+  TopCenter = 1,
+  TopRight = 2,
+  MiddleRight = 3,
+  BottomRight = 4,
+  BottomCenter = 5,
+  BottomLeft = 6,
+  MiddleLeft = 7,
+  Rotation = 8,
+}
+
+export interface ControlPointStyle {
+  size: number;
+  fillStyle: string;
+  strokeStyle: string;
+  lineWidth: number;
+}
+
+export interface Transformable {
+  getBounds(): Bounds;
+  getTransform(): Transform;
+  setTransform(transform: Transform): void;
+  transformPointToLocal(point: Position): Position;
+  getControlPointAtPosition(point: Position): ControlPointType;
 }

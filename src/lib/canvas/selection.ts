@@ -1,4 +1,4 @@
-import { Postition } from "@/types";
+import { Position } from "@/types";
 import { BaseObject } from "@/lib/canvas/objects/base";
 
 export class SelectionManager {
@@ -8,7 +8,7 @@ export class SelectionManager {
     this.selectedObjects = new Set();
   }
 
-  handleClick(objects: BaseObject[], point: Postition): BaseObject | null {
+  handleClick(objects: BaseObject[], point: Position): BaseObject | null {
     // check from top to bottom
     for (let i = objects.length - 1; i >= 0; i--) {
       const obj = objects[i];

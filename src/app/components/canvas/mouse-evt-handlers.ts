@@ -39,8 +39,8 @@ export class MouseEvtHandlers {
 
     if (clickedObject) {
       this.transformManager.startDrag(mousePos);
-      this.onObjectsChange([...objects]);
     }
+    this.onObjectsChange([...objects]);
   }
 
   handleMouseMove(e: React.MouseEvent, objects: BaseObject[]) {

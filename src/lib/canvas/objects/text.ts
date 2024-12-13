@@ -19,6 +19,10 @@ export class TextObject extends BaseObject implements Transformable, Editable {
   private selectionStart: number | null = null
   private blinkInterval: number | null = null
   private showCursor: boolean = false
+  private reqAnimFrameId: number | null = null
+  private lastBlinkTime: number = 0
+  private readonly BLINK_INTERVAL = 530
+  private onUpdate: (() => void) | null = null
 
   constructor(content: string, position: Position) {
     super("text", position)
@@ -165,24 +169,46 @@ export class TextObject extends BaseObject implements Transformable, Editable {
 
   // editing methods
 
+  setUpdateCallback(cb: () => void): void {
+    this.onUpdate = cb
+  }
+
   startEditing(): void {
     this.isEditing = true
     this.cursorPosition = this.content.length
     this.selectionStart = 0
     this.showCursor = true
+    this.lastBlinkTime = 0
 
-    this.blinkInterval = window.setInterval(() => {
-      this.showCursor = !this.showCursor
-    }, 530)
+    const animateBlink = (timestamp: number) => {
+      if (!this.lastBlinkTime) this.lastBlinkTime = timestamp
+
+      const elapsed = timestamp - this.lastBlinkTime
+
+      if (elapsed > this.BLINK_INTERVAL) {
+        this.showCursor = !this.showCursor
+        if (this.onUpdate) {
+          this.onUpdate()
+        }
+        this.lastBlinkTime = timestamp
+      }
+
+      if (this.isEditing) {
+        this.reqAnimFrameId = requestAnimationFrame(animateBlink)
+      }
+    }
+
+    this.reqAnimFrameId = requestAnimationFrame(animateBlink)
   }
 
   stopEditing(): void {
     this.isEditing = false
     this.selectionStart = null
-    if (this.blinkInterval) {
-      window.clearInterval(this.blinkInterval)
-      this.blinkInterval = null
+    if (this.reqAnimFrameId !== null) {
+      cancelAnimationFrame(this.reqAnimFrameId)
+      this.reqAnimFrameId = null
     }
+    this.lastBlinkTime = 0
   }
 
   // crazy i have to do this myself ☠️
@@ -251,6 +277,12 @@ export class TextObject extends BaseObject implements Transformable, Editable {
       return
     }
 
+    if (e.ctrlKey && e.key === "a") {
+      this.selectionStart = 0
+      this.cursorPosition = this.content.length
+      return
+    }
+
     if (e.key.length === 1 && !e.ctrlKey && !e.metaKey) {
       if (this.selectionStart !== null) {
         const start = Math.min(this.selectionStart, this.cursorPosition)
@@ -290,12 +322,15 @@ export class TextObject extends BaseObject implements Transformable, Editable {
 
     if (this.showCursor) {
       const cursorX = -totalWidth / 2 + this.cursorPosition * charWidth
-      ctx.fillStyle = "#ffffff"
-      ctx.lineWidth = 1 / this.transform.scale
+      ctx.strokeStyle = "#ff0000"
+      ctx.lineWidth = (1 / this.transform.scale) * 2
       ctx.beginPath()
       ctx.moveTo(cursorX, -10)
-      ctx.lineTo(cursorX, 10)
+      ctx.lineTo(cursorX, 10 / this.transform.scale)
       ctx.stroke()
+
+      // ctx.fillStyle = "#ff0000"
+      // ctx.fillRect(cursorX - 0.5, -10, 1, 20 / this.transform.scale)
     }
   }
 }

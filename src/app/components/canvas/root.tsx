@@ -50,7 +50,7 @@ export function Canvas() {
       x: canvasRef.current!.width / 2,
       y: canvasRef.current!.height / 2,
     })
-
+    newText.setUpdateCallback(() => setObjects([...objects, newText]))
     setObjects([...objects, newText])
   }
 

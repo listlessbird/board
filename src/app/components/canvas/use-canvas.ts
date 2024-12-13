@@ -1,31 +1,17 @@
-import { useEffect, useState } from "react"
+"use client"
+
+import { useEffect, useState, useCallback } from "react"
 
 export function useCanvas({
   canvasRef,
 }: {
   canvasRef: React.RefObject<HTMLCanvasElement>
 }) {
-  const [dimensions, setDimensions] = useState({
-    width: window.innerWidth,
-    height: window.innerHeight,
-  })
-
+  const [dimensions, setDimensions] = useState({ width: 0, height: 0 })
   const [context, setContext] = useState<CanvasRenderingContext2D | null>(null)
 
-  useEffect(() => {
-    if (canvasRef.current) {
-      const ctx = canvasRef.current.getContext("2d")
-
-      if (ctx) {
-        ctx.imageSmoothingEnabled = true
-        ctx.imageSmoothingQuality = "high"
-        setContext(ctx)
-      }
-    }
-  }, [canvasRef])
-
-  useEffect(() => {
-    const handleResize = () => {
+  const handleResize = useCallback(() => {
+    if (typeof window !== "undefined") {
       const dpr = window.devicePixelRatio || 1
       setDimensions({
         width: window.innerWidth * dpr,
@@ -44,14 +30,29 @@ export function useCanvas({
         }
       }
     }
+  }, [canvasRef])
+
+  useEffect(() => {
+    if (canvasRef.current) {
+      const ctx = canvasRef.current.getContext("2d")
+
+      if (ctx) {
+        ctx.imageSmoothingEnabled = true
+        ctx.imageSmoothingQuality = "high"
+        setContext(ctx)
+      }
+    }
 
     handleResize()
-    window.addEventListener("resize", handleResize)
 
-    return () => {
-      window.removeEventListener("resize", handleResize)
+    if (typeof window !== "undefined") {
+      window.addEventListener("resize", handleResize)
+
+      return () => {
+        window.removeEventListener("resize", handleResize)
+      }
     }
-  }, [canvasRef])
+  }, [canvasRef, handleResize])
 
   return { dimensions, context }
 }

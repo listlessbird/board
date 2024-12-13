@@ -3,16 +3,22 @@ import { BaseObject } from "@/lib/canvas/objects/base"
 import {
   Bounds,
   ControlPointType,
+  Editable,
   Position,
   Transform,
   Transformable,
 } from "@/types"
 
-export class TextObject extends BaseObject implements Transformable {
+export class TextObject extends BaseObject implements Transformable, Editable {
   private controlPointManager: ControlPointManager
   content: string
   font: string
   color: string
+  isEditing: boolean = false
+  private cursorPosition: number = 0
+  private selectionStart: number | null = null
+  private blinkInterval: number | null = null
+  private showCursor: boolean = false
 
   constructor(content: string, position: Position) {
     super("text", position)
@@ -56,6 +62,10 @@ export class TextObject extends BaseObject implements Transformable {
     )
 
     ctx.fillText(this.content, 0, 0)
+
+    if (this.isEditing) {
+      this.renderEditingUI(ctx)
+    }
 
     if (this.selected) {
       const bounds = this.getBounds()
@@ -151,5 +161,141 @@ export class TextObject extends BaseObject implements Transformable {
       this.transform.scale,
       (p) => this.transformPointToLocal(p)
     )
+  }
+
+  // editing methods
+
+  startEditing(): void {
+    this.isEditing = true
+    this.cursorPosition = this.content.length
+    this.selectionStart = 0
+    this.showCursor = true
+
+    this.blinkInterval = window.setInterval(() => {
+      this.showCursor = !this.showCursor
+    }, 530)
+  }
+
+  stopEditing(): void {
+    this.isEditing = false
+    this.selectionStart = null
+    if (this.blinkInterval) {
+      window.clearInterval(this.blinkInterval)
+      this.blinkInterval = null
+    }
+  }
+
+  // crazy i have to do this myself ☠️
+  onKeyDown(e: KeyboardEvent): void {
+    if (!this.isEditing) return
+
+    if (e.key === "Escape") {
+      this.stopEditing()
+      return
+    }
+
+    if (e.key === "Enter") {
+      this.stopEditing()
+      return
+    }
+
+    if (e.key === "Backspace") {
+      if (this.selectionStart !== null) {
+        const start = Math.min(this.selectionStart, this.cursorPosition)
+        const end = Math.max(this.selectionStart, this.cursorPosition)
+        this.content = this.content.slice(0, start) + this.content.slice(end)
+
+        this.cursorPosition = start
+        this.selectionStart = null
+      } else if (this.cursorPosition > 0) {
+        this.content =
+          this.content.slice(0, this.cursorPosition - 1) +
+          this.content.slice(this.cursorPosition)
+        this.cursorPosition--
+      }
+
+      e.preventDefault()
+      return
+    }
+
+    if (e.key === "ArrowLeft") {
+      // shift selection
+      if (e.shiftKey && this.selectionStart === null) {
+        this.selectionStart = this.cursorPosition
+      }
+
+      if (!e.shiftKey) {
+        this.selectionStart = null
+      }
+
+      if (this.cursorPosition > 0) {
+        this.cursorPosition--
+      }
+
+      return
+    }
+
+    if (e.key === "ArrowRight") {
+      if (e.shiftKey && this.selectionStart === null) {
+        this.selectionStart = this.cursorPosition
+      }
+
+      if (!e.shiftKey) {
+        this.selectionStart = null
+      }
+
+      if (this.cursorPosition < this.content.length) {
+        this.cursorPosition++
+      }
+
+      return
+    }
+
+    if (e.key.length === 1 && !e.ctrlKey && !e.metaKey) {
+      if (this.selectionStart !== null) {
+        const start = Math.min(this.selectionStart, this.cursorPosition)
+        const end = Math.max(this.selectionStart, this.cursorPosition)
+        this.content =
+          this.content.slice(0, start) + e.key + this.content.slice(end)
+
+        this.cursorPosition = start + 1
+        this.selectionStart = null
+      } else {
+        this.content =
+          this.content.slice(0, this.cursorPosition) +
+          e.key +
+          this.content.slice(this.cursorPosition)
+        this.cursorPosition++
+      }
+    }
+  }
+
+  private renderEditingUI(ctx: CanvasRenderingContext2D): void {
+    const metrics = ctx.measureText(this.content)
+    const totalWidth = metrics.width
+    const charWidth = totalWidth / this.content.length
+
+    // draw selection
+
+    if (this.selectionStart !== null) {
+      const start = Math.min(this.selectionStart, this.cursorPosition)
+      const end = Math.max(this.selectionStart, this.cursorPosition)
+
+      const startX = -totalWidth / 2 + start * charWidth
+      const width = (end - start) * charWidth
+
+      ctx.fillStyle = `rgba(0, 102, 255, 0.3)`
+      ctx.fillRect(startX, -10, width, 20)
+    }
+
+    if (this.showCursor) {
+      const cursorX = -totalWidth / 2 + this.cursorPosition * charWidth
+      ctx.fillStyle = "#ffffff"
+      ctx.lineWidth = 1 / this.transform.scale
+      ctx.beginPath()
+      ctx.moveTo(cursorX, -10)
+      ctx.lineTo(cursorX, 10)
+      ctx.stroke()
+    }
   }
 }

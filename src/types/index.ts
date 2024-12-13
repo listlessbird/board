@@ -59,3 +59,10 @@ export interface Transformable {
   transformPointToLocal(point: Position): Position
   getControlPointAtPosition(point: Position): ControlPointType
 }
+
+export interface Editable {
+  startEditing(): void
+  stopEditing(): void
+  isEditing: boolean
+  onKeyDown(e: KeyboardEvent): void
+}

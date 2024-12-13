@@ -1,7 +1,7 @@
 import { BaseObject } from "@/lib/canvas/objects/base"
 import { SelectionManager } from "@/lib/canvas/selection"
 import { TransformManager } from "@/lib/canvas/transform"
-import { ControlPointType, Position, Transformable } from "@/types"
+import { ControlPointType, Editable, Position, Transformable } from "@/types"
 import React from "react"
 
 export class MouseEvtHandlers {
@@ -90,6 +90,19 @@ export class MouseEvtHandlers {
   handleMouseLeave() {
     this.isHovering = false
     this.handleMouseUp()
+  }
+
+  handleDoubleClick(e: React.MouseEvent, objects: BaseObject[]): void {
+    const pos = this.getMousePos(e)
+
+    const selected = this.SelectionManager.getSelectedObjects()[0]
+
+    if (selected && "isEditing" in selected) {
+      const editable = selected as unknown as Editable
+      if (editable.isEditing) return
+
+      editable.startEditing()
+    }
   }
 
   //   TODO: handle mouse wheel

@@ -11,7 +11,6 @@ export class TransformManager {
   private initialDistance: number | null = null
   private controlPointManager: ControlPointManager
 
-  private isFlippedY: boolean = false
   constructor() {
     this.controlPointManager = new ControlPointManager()
   }
@@ -24,7 +23,12 @@ export class TransformManager {
     this.isDragging = true
     this.lastMousePos = position
     this.activeControlPoint = controlPoint
-    this.initialTransform = object.getTransform()
+    this.initialTransform = {
+      position: { ...object.transform.position },
+      rotation: object.transform.rotation,
+      scale: object.transform.scale,
+      isFlipped: object.transform.isFlipped,
+    }
 
     if (this.isScaleHandle(controlPoint)) {
       const center = object.transform.position
@@ -49,7 +53,7 @@ export class TransformManager {
         break
       case ControlPointType.MiddleLeft:
       case ControlPointType.MiddleRight:
-        this.handleFlipScale(object, currentPos)
+        this.handleFlip(object, currentPos)
         break
 
       default:
@@ -85,34 +89,32 @@ export class TransformManager {
     const currentAngle = this.getAngle(center, currentPos)
     let deltaAngle = currentAngle - this.initialAngle
 
+    // limit angle to -pi to pi
     while (deltaAngle > Math.PI) deltaAngle -= 2 * Math.PI
     while (deltaAngle < -Math.PI) deltaAngle += 2 * Math.PI
 
     const smoothing = 0.5
-    deltaAngle *= smoothing
-
-    object.transform.rotation += this.initialTransform!.rotation + deltaAngle
+    object.transform.rotation +=
+      this.initialTransform!.rotation + deltaAngle * smoothing
   }
 
-  private handleFlipScale(object: BaseObject, currentPos: Position): void {
+  private handleFlip(object: BaseObject, currentPos: Position): void {
+    if (!this.initialTransform || !this.lastMousePos) return
+
     const center = object.transform.position
+
     const isHorizontalControl =
       this.activeControlPoint === ControlPointType.MiddleLeft ||
       this.activeControlPoint === ControlPointType.MiddleRight
 
-    const currentDistance = this.getDistance(center, currentPos)
-    const deltaScale = (currentDistance - (this.initialDistance || 0)) / 100
+    if (!isHorizontalControl) return
 
-    if (isHorizontalControl) {
-      if (Math.abs(deltaScale) > 0.5) {
-        this.isFlippedX = deltaScale < 0
-        object.transform.scale = Math.abs(
-          this.initialTransform!.scale * (1 + deltaScale)
-        )
-      }
+    const initDir = this.lastMousePos.x - center.x
+    const currentDir = currentPos.x - center.x
+
+    if (Math.sign(initDir) !== Math.sign(currentDir)) {
+      object.transform.isFlipped = !object.transform.isFlipped
     }
-
-    object.transform.scale *= this.isFlippedX ? -1 : 1
   }
 
   private handleScale(object: BaseObject, currentPos: Position): void {

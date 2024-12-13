@@ -17,7 +17,8 @@ export class ControlPointManager {
   drawControlPoints(
     ctx: CanvasRenderingContext2D,
     bounds: Bounds,
-    scale: number
+    scale: number,
+    isFlipped: boolean = false
   ): void {
     const points = this.getControlPoints(bounds)
     const absScale = Math.abs(scale)
@@ -26,6 +27,11 @@ export class ControlPointManager {
     ctx.fillStyle = this.style.fillStyle
     ctx.strokeStyle = this.style.strokeStyle
     ctx.lineWidth = this.style.lineWidth / absScale
+
+    if (isFlipped) {
+      points.reverse()
+      ctx.scale(-1, 1)
+    }
 
     points.forEach((p) => {
       ctx.beginPath()

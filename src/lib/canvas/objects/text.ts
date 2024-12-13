@@ -5,6 +5,7 @@ import {
   ControlPointType,
   Editable,
   Position,
+  TextStyle,
   Transform,
   Transformable,
 } from "@/types"
@@ -12,9 +13,9 @@ import {
 export class TextObject extends BaseObject implements Transformable, Editable {
   private controlPointManager: ControlPointManager
   content: string
-  font: string
-  color: string
+  style: TextStyle
   isEditing: boolean = false
+  private font: string
   private cursorPosition: number = 0
   private selectionStart: number | null = null
   private blinkInterval: number | null = null
@@ -24,12 +25,12 @@ export class TextObject extends BaseObject implements Transformable, Editable {
   private readonly BLINK_INTERVAL = 530
   private onUpdate: (() => void) | null = null
 
-  constructor(content: string, position: Position) {
+  constructor(content: string, position: Position, style?: TextStyle) {
     super("text", position)
     this.content = content
-    this.font = "20px Geist Mono"
-    this.color = "#ffffff"
     this.controlPointManager = new ControlPointManager()
+    this.style = style || { font: "Geist Mono", color: "#ffffff", size: 20 }
+    this.font = `${this.style.size}px ${this.style.font}`
   }
 
   getTransform(): Transform {
@@ -54,7 +55,7 @@ export class TextObject extends BaseObject implements Transformable, Editable {
     ctx.save()
 
     ctx.font = this.font
-    ctx.fillStyle = this.selected ? "#0066ff" : this.color
+    ctx.fillStyle = this.selected ? "#0066ff" : this.style.color
     ctx.textAlign = "center"
     ctx.textBaseline = "middle"
 
@@ -307,8 +308,14 @@ export class TextObject extends BaseObject implements Transformable, Editable {
     const totalWidth = metrics.width
     const charWidth = totalWidth / this.content.length
 
-    // draw selection
+    const textHeight =
+      metrics.actualBoundingBoxAscent + metrics.actualBoundingBoxDescent
 
+    // 20% taller than the text
+    const cursorHeight = textHeight * 1.2
+    const cursorYOffset = cursorHeight / 2
+
+    // draw selection
     if (this.selectionStart !== null) {
       const start = Math.min(this.selectionStart, this.cursorPosition)
       const end = Math.max(this.selectionStart, this.cursorPosition)
@@ -323,10 +330,10 @@ export class TextObject extends BaseObject implements Transformable, Editable {
     if (this.showCursor) {
       const cursorX = -totalWidth / 2 + this.cursorPosition * charWidth
       ctx.strokeStyle = "#ff0000"
-      ctx.lineWidth = (1 / this.transform.scale) * 2
+      ctx.lineWidth = 1 / this.transform.scale
       ctx.beginPath()
-      ctx.moveTo(cursorX, -10)
-      ctx.lineTo(cursorX, 10 / this.transform.scale)
+      ctx.moveTo(cursorX, -cursorYOffset)
+      ctx.lineTo(cursorX, cursorYOffset)
       ctx.stroke()
 
       // ctx.fillStyle = "#ff0000"

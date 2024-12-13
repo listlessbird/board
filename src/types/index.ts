@@ -66,3 +66,11 @@ export interface Editable {
   isEditing: boolean
   onKeyDown(e: KeyboardEvent): void
 }
+
+export type TextStyle = {
+  font: string
+  // valid color name or hex code
+  color: string
+  // in px
+  size: number
+}

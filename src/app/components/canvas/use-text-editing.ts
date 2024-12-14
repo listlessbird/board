@@ -1,6 +1,6 @@
 import { BaseObject } from "@/lib/canvas/objects/base"
 import { TextObject } from "@/lib/canvas/objects/text"
-import { useCallback } from "react"
+import { useCallback, useRef } from "react"
 
 export function useTextEditing({
   objects,
@@ -9,6 +9,8 @@ export function useTextEditing({
   objects: BaseObject[]
   setObjects: (objects: BaseObject[]) => void
 }) {
+  const editingRef = useRef<TextObject | null>(null)
+
   const stopAllEditing = useCallback(() => {
     let hasChanges = false
 
@@ -20,6 +22,7 @@ export function useTextEditing({
     })
 
     if (hasChanges) {
+      editingRef.current = null
       setObjects([...objects])
     }
   }, [objects, setObjects])
@@ -28,6 +31,7 @@ export function useTextEditing({
     (obj: TextObject) => {
       stopAllEditing()
       obj.startEditing()
+      editingRef.current = obj
       setObjects([...objects])
     },
     [objects, setObjects, stopAllEditing]
@@ -53,9 +57,14 @@ export function useTextEditing({
     [objects, stopAllEditing]
   )
 
+  const getEditingObject = useCallback(() => {
+    return editingRef.current
+  }, [])
+
   return {
     startEditing,
     stopAllEditing,
     handleClickOutside,
+    getEditingObject,
   }
 }

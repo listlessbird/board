@@ -57,12 +57,18 @@ export function Canvas() {
   }, [context, objects, dimensions])
 
   const addText = () => {
-    const newText = new TextObject(`Listless's Board`, {
-      x: (Math.random() * canvasRef.current!.width) / 2,
-      y: (Math.random() * canvasRef.current!.height) / 2,
+    setObjects((prev) => {
+      const newText = new TextObject(`Listless's Board`, {
+        x: (Math.random() * canvasRef.current!.width) / 2,
+        y: (Math.random() * canvasRef.current!.height) / 2,
+      })
+
+      newText.setUpdateCallback(() => {
+        setObjects((cur) => [...cur])
+      })
+
+      return [...prev, newText]
     })
-    newText.setUpdateCallback(() => setObjects([...objects, newText]))
-    setObjects((prev) => [...prev, newText])
   }
 
   return (

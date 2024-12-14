@@ -170,8 +170,8 @@ export class TextObject extends BaseObject implements Transformable, Editable {
 
   // editing methods
 
-  setUpdateCallback(cb: () => void): void {
-    this.onUpdate = cb
+  setUpdateCallback(updateFn: () => void): void {
+    this.onUpdate = updateFn
   }
 
   startEditing(): void {
@@ -182,6 +182,7 @@ export class TextObject extends BaseObject implements Transformable, Editable {
     this.lastBlinkTime = 0
 
     const animateBlink = (timestamp: number) => {
+      if (!this.isEditing) return
       if (!this.lastBlinkTime) this.lastBlinkTime = timestamp
 
       const elapsed = timestamp - this.lastBlinkTime
@@ -197,6 +198,10 @@ export class TextObject extends BaseObject implements Transformable, Editable {
       if (this.isEditing) {
         this.reqAnimFrameId = requestAnimationFrame(animateBlink)
       }
+    }
+
+    if (this.reqAnimFrameId !== null) {
+      cancelAnimationFrame(this.reqAnimFrameId)
     }
 
     this.reqAnimFrameId = requestAnimationFrame(animateBlink)

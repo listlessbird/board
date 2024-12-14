@@ -1,4 +1,5 @@
 import { BaseObject } from "@/lib/canvas/objects/base"
+import { TextObject } from "@/lib/canvas/objects/text"
 import { SelectionManager } from "@/lib/canvas/selection"
 import { TransformManager } from "@/lib/canvas/transform"
 import { ControlPointType, Editable, Position, Transformable } from "@/types"
@@ -8,7 +9,10 @@ export class MouseEvtHandlers {
   private canvas: React.RefObject<HTMLCanvasElement>
   private SelectionManager: SelectionManager
   private transformManager: TransformManager
-
+  private textEditingCallbacks: {
+    startEditing: (obj: TextObject) => void
+    handleClickOutside: (obj: BaseObject | null) => void
+  }
   private setObjects: (objects: BaseObject[]) => void
   private activeObject: BaseObject | null = null
   private isHovering: boolean = false
@@ -16,36 +20,55 @@ export class MouseEvtHandlers {
     canvas: React.RefObject<HTMLCanvasElement>,
     SelectionManager: SelectionManager,
     transformManager: TransformManager,
-    setObjects: (objects: BaseObject[]) => void
+    setObjects: (objects: BaseObject[]) => void,
+    textEditingCallbacks: {
+      startEditing: (obj: TextObject) => void
+      handleClickOutside: (obj: BaseObject | null) => void
+    }
   ) {
     this.canvas = canvas
     this.SelectionManager = SelectionManager
     this.transformManager = transformManager
     this.setObjects = setObjects
+    this.textEditingCallbacks = textEditingCallbacks
   }
 
   handleMouseDown(e: React.MouseEvent, objects: BaseObject[]) {
     const pos = this.getMousePos(e)
+    const currentSelected = this.SelectionManager.getSelectedObjects()[0]
 
-    const selectedObject = this.SelectionManager.getSelectedObjects()[0]
+    if (currentSelected) {
+      if (this.isTransformable(currentSelected)) {
+        const controlPoint = currentSelected.getControlPointAtPosition(pos)
+        if (controlPoint !== ControlPointType.None) {
+          this.activeObject = currentSelected
+          this.transformManager.startDrag(pos, controlPoint, currentSelected)
+          return
+        }
+      }
 
-    // control point interaction on selected object
-    if (this.isTransformable(selectedObject)) {
-      const controlPoint = selectedObject.getControlPointAtPosition(pos)
-
-      if (controlPoint !== ControlPointType.None) {
-        this.activeObject = selectedObject
-        this.transformManager.startDrag(pos, controlPoint, selectedObject)
+      if (currentSelected.containsPoint(pos)) {
+        this.activeObject = currentSelected
+        this.transformManager.startDrag(
+          pos,
+          ControlPointType.None,
+          currentSelected
+        )
         return
       }
     }
 
-    // regular click
     const clickedObject = this.SelectionManager.handleClick(objects, pos)
+    this.textEditingCallbacks.handleClickOutside(clickedObject)
+
     if (clickedObject) {
       this.activeObject = clickedObject
       this.transformManager.startDrag(pos, ControlPointType.None, clickedObject)
+    } else {
+      this.activeObject = null
     }
+
+    this.setObjects([...objects])
   }
 
   handleMouseMove(e: React.MouseEvent, objects: BaseObject[]): void {
@@ -93,15 +116,10 @@ export class MouseEvtHandlers {
   }
 
   handleDoubleClick(e: React.MouseEvent, objects: BaseObject[]): void {
-    const pos = this.getMousePos(e)
-
     const selected = this.SelectionManager.getSelectedObjects()[0]
 
-    if (selected && "isEditing" in selected) {
-      const editable = selected as unknown as Editable
-      if (editable.isEditing) return
-
-      editable.startEditing()
+    if (selected instanceof TextObject) {
+      this.textEditingCallbacks.startEditing(selected)
     }
   }
 

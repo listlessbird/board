@@ -3,6 +3,7 @@
 import { MouseEvtHandlers } from "@/app/components/canvas/mouse-evt-handlers"
 import { useCanvas } from "@/app/components/canvas/use-canvas"
 import { useCanvasKeyBoardEvents } from "@/app/components/canvas/use-canvas-kb-events"
+import { useTextEditing } from "@/app/components/canvas/use-text-editing"
 import { BaseObject } from "@/lib/canvas/objects/base"
 import { TextObject } from "@/lib/canvas/objects/text"
 import { SelectionManager } from "@/lib/canvas/selection"
@@ -17,6 +18,12 @@ export function Canvas() {
   const mouseManager = useRef<MouseEvtHandlers | null>(null)
 
   const { dimensions, context } = useCanvas({ canvasRef })
+
+  const textEditing = useTextEditing({
+    objects,
+    setObjects,
+  })
+
   useCanvasKeyBoardEvents({
     canvas: canvasRef,
     objects,
@@ -30,9 +37,13 @@ export function Canvas() {
       canvasRef,
       selectionManager.current,
       transformManager.current,
-      setObjects
+      setObjects,
+      {
+        startEditing: textEditing.startEditing,
+        handleClickOutside: textEditing.handleClickOutside,
+      }
     )
-  }, [])
+  }, [textEditing])
 
   useEffect(() => {
     if (!context || !canvasRef.current) return
@@ -47,11 +58,11 @@ export function Canvas() {
 
   const addText = () => {
     const newText = new TextObject(`Listless's Board`, {
-      x: canvasRef.current!.width / 2,
-      y: canvasRef.current!.height / 2,
+      x: (Math.random() * canvasRef.current!.width) / 2,
+      y: (Math.random() * canvasRef.current!.height) / 2,
     })
     newText.setUpdateCallback(() => setObjects([...objects, newText]))
-    setObjects([...objects, newText])
+    setObjects((prev) => [...prev, newText])
   }
 
   return (
@@ -60,13 +71,19 @@ export function Canvas() {
         tabIndex={0}
         ref={canvasRef}
         className="w-full h-full outline-none"
-        onMouseDown={(e) => mouseManager.current?.handleMouseDown(e, objects)}
+        onDoubleClick={(e) => {
+          e.preventDefault()
+          e.stopPropagation()
+          mouseManager.current?.handleDoubleClick(e, objects)
+        }}
+        onMouseDown={(e) => {
+          // e.preventDefault()
+          e.stopPropagation()
+          mouseManager.current?.handleMouseDown(e, objects)
+        }}
         onMouseMove={(e) => mouseManager.current?.handleMouseMove(e, objects)}
         onMouseUp={() => mouseManager.current?.handleMouseUp()}
         onMouseLeave={() => mouseManager.current?.handleMouseLeave()}
-        onDoubleClick={(e) =>
-          mouseManager.current?.handleDoubleClick(e, objects)
-        }
       />
       <button
         className="mt-4 px-4 py-2 bg-blue-500 text-white rounded absolute top-0"

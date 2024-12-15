@@ -10,6 +10,8 @@ import { TextObject } from "@/lib/canvas/objects/text"
 import { SelectionManager } from "@/lib/canvas/selection"
 import { TransformManager } from "@/lib/canvas/transform"
 import { useCallback, useEffect, useRef, useState } from "react"
+import { TextStyle } from "@/types"
+import { ToolbarProvider } from "@/context/toolbar"
 
 export function Canvas() {
   const canvasRef = useRef<HTMLCanvasElement>(null!)
@@ -60,6 +62,30 @@ export function Canvas() {
     selectionManager: selectionManager.current,
   })
 
+  const handleDeleteObject = useCallback((obj: BaseObject) => {
+    selectionManager.current.clearSelection()
+    setObjects((prev) => prev.filter((o) => o !== obj))
+  }, [])
+
+  const handleObjectUpdate = useCallback(
+    (obj: BaseObject, updates: Partial<BaseObject>) => {
+      setObjects((prev) =>
+        prev.map((o) => {
+          if (o.id === obj.id) {
+            if (o instanceof TextObject && "style" in updates) {
+              o.setStyle(updates.style as Partial<TextStyle>)
+            }
+            Object.assign(o, updates)
+
+            return o
+          }
+          return o
+        })
+      )
+    },
+    []
+  )
+
   const addText = () => {
     setObjects((prev) => {
       const newText = new TextObject(`Listless's Board`, {
@@ -76,31 +102,36 @@ export function Canvas() {
   }
 
   return (
-    <div className="fixed inset-0 overflow-hidden outline-none">
-      <canvas
-        tabIndex={0}
-        ref={canvasRef}
-        className="w-full h-full outline-none"
-        onDoubleClick={(e) => {
-          e.preventDefault()
-          e.stopPropagation()
-          mouseManager.current?.handleDoubleClick(e, objects)
-        }}
-        onMouseDown={(e) => {
-          // e.preventDefault()
-          e.stopPropagation()
-          mouseManager.current?.handleMouseDown(e, objects)
-        }}
-        onMouseMove={(e) => mouseManager.current?.handleMouseMove(e, objects)}
-        onMouseUp={() => mouseManager.current?.handleMouseUp()}
-        onMouseLeave={() => mouseManager.current?.handleMouseLeave()}
-      />
-      <button
-        className="mt-4 px-4 py-2 bg-blue-500 text-white rounded absolute top-0"
-        onClick={addText}
-      >
-        Add Text
-      </button>
-    </div>
+    <ToolbarProvider
+      onObjectUpdate={handleObjectUpdate}
+      onDeleteObject={handleDeleteObject}
+    >
+      <div className="fixed inset-0 overflow-hidden outline-none">
+        <canvas
+          tabIndex={0}
+          ref={canvasRef}
+          className="w-full h-full outline-none"
+          onDoubleClick={(e) => {
+            e.preventDefault()
+            e.stopPropagation()
+            mouseManager.current?.handleDoubleClick(e, objects)
+          }}
+          onMouseDown={(e) => {
+            // e.preventDefault()
+            e.stopPropagation()
+            mouseManager.current?.handleMouseDown(e, objects)
+          }}
+          onMouseMove={(e) => mouseManager.current?.handleMouseMove(e, objects)}
+          onMouseUp={() => mouseManager.current?.handleMouseUp()}
+          onMouseLeave={() => mouseManager.current?.handleMouseLeave()}
+        />
+        <button
+          className="mt-4 px-4 py-2 bg-blue-500 text-white rounded absolute top-0"
+          onClick={addText}
+        >
+          Add Text
+        </button>
+      </div>
+    </ToolbarProvider>
   )
 }

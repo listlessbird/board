@@ -1,3 +1,5 @@
+import { TextObject } from "@/lib/canvas/objects/text"
+
 export interface Position {
   x: number
   y: number
@@ -22,8 +24,7 @@ export interface Bounds {
   bottom: number
 }
 
-// for now only support text and image
-export type CanvasObjectType = "text" | "image"
+export type CanvasObjectType = "text"
 
 export interface CanvasObject {
   id: string
@@ -73,4 +74,10 @@ export type TextStyle = {
   color: string
   // in px
   size: number
+  weight?: "normal" | "bold"
+  italic?: boolean
+}
+
+export type ObjectTypeMap = {
+  text: TextObject
 }

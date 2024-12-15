@@ -345,4 +345,14 @@ export class TextObject extends BaseObject implements Transformable, Editable {
       // ctx.fillRect(cursorX - 0.5, -10, 1, 20 / this.transform.scale)
     }
   }
+  private updateFont() {
+    const italic = this.style.italic ? "italic " : ""
+    const weight = this.style.weight || "normal"
+    this.font = `${italic}${weight} ${this.style.size}px ${this.style.font}`
+  }
+
+  setStyle(style: Partial<TextStyle>) {
+    this.style = { ...this.style, ...style }
+    this.updateFont()
+  }
 }

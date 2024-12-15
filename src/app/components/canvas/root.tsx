@@ -8,7 +8,7 @@ import { BaseObject } from "@/lib/canvas/objects/base"
 import { TextObject } from "@/lib/canvas/objects/text"
 import { SelectionManager } from "@/lib/canvas/selection"
 import { TransformManager } from "@/lib/canvas/transform"
-import { useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 
 export function Canvas() {
   const canvasRef = useRef<HTMLCanvasElement>(null!)
@@ -24,14 +24,19 @@ export function Canvas() {
     setObjects,
   })
 
-  useCanvasKeyBoardEvents({
-    canvas: canvasRef,
-    objects,
-    setObjects,
-    selectionManager: selectionManager.current,
-  })
+  const renderCanvas = useCallback(() => {
+    if (!context) return
+    context.clearRect(0, 0, dimensions.width, dimensions.height)
+    objects.forEach((obj) => obj.render(context))
+  }, [context, dimensions, objects])
+
   useEffect(() => {
-    if (!canvasRef.current) return
+    if (!canvasRef.current || !context) return
+
+    transformManager.current.setCallbacks({
+      onRender: renderCanvas,
+      onTransformEnd: () => setObjects([...objects]),
+    })
 
     mouseManager.current = new MouseEvtHandlers(
       canvasRef,
@@ -43,18 +48,18 @@ export function Canvas() {
         handleClickOutside: textEditing.handleClickOutside,
       }
     )
-  }, [textEditing])
+  }, [context, objects, renderCanvas, textEditing])
+
+  useCanvasKeyBoardEvents({
+    canvas: canvasRef,
+    objects,
+    setObjects,
+    selectionManager: selectionManager.current,
+  })
 
   useEffect(() => {
-    if (!context || !canvasRef.current) return
-
-    const render = () => {
-      context.clearRect(0, 0, dimensions.width, dimensions.height)
-      objects.forEach((o) => o.render(context))
-    }
-
-    render()
-  }, [context, objects, dimensions])
+    renderCanvas()
+  }, [renderCanvas])
 
   const addText = () => {
     setObjects((prev) => {

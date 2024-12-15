@@ -67,8 +67,6 @@ export class MouseEvtHandlers {
     } else {
       this.activeObject = null
     }
-
-    this.setObjects([...objects])
   }
 
   handleMouseMove(e: React.MouseEvent, objects: BaseObject[]): void {
@@ -76,7 +74,6 @@ export class MouseEvtHandlers {
 
     if (this.activeObject) {
       this.transformManager.drag(this.activeObject, pos)
-      this.setObjects([...objects])
       return
     }
 

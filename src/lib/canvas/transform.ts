@@ -10,7 +10,9 @@ export class TransformManager {
   private initialAngle: number | null = null
   private initialDistance: number | null = null
   private controlPointManager: ControlPointManager
-
+  private rafId: number | null = null
+  private renderCallback: (() => void) | null = null
+  private onTransformEnd: (() => void) | null = null
   constructor() {
     this.controlPointManager = new ControlPointManager()
   }
@@ -23,12 +25,7 @@ export class TransformManager {
     this.isDragging = true
     this.lastMousePos = position
     this.activeControlPoint = controlPoint
-    this.initialTransform = {
-      position: { ...object.transform.position },
-      rotation: object.transform.rotation,
-      scale: object.transform.scale,
-      isFlipped: object.transform.isFlipped,
-    }
+    this.initialTransform = { ...object.transform }
 
     if (this.isScaleHandle(controlPoint)) {
       const center = object.transform.position
@@ -39,6 +36,8 @@ export class TransformManager {
       const center = object.transform.position
       this.initialAngle = this.getAngle(center, position)
     }
+
+    this.requestRender()
   }
 
   drag(object: BaseObject, currentPos: Position): void {
@@ -55,7 +54,6 @@ export class TransformManager {
       case ControlPointType.MiddleRight:
         this.handleFlip(object, currentPos)
         break
-
       default:
         if (this.isScaleHandle(this.activeControlPoint)) {
           this.handleScale(object, currentPos)
@@ -63,9 +61,16 @@ export class TransformManager {
     }
 
     this.lastMousePos = currentPos
+    this.requestRender()
   }
 
   endDrag(): void {
+    this.cancelRender()
+
+    if (this.isDragging && this.onTransformEnd) {
+      this.onTransformEnd()
+    }
+
     this.isDragging = false
     this.lastMousePos = null
     this.activeControlPoint = ControlPointType.None
@@ -74,12 +79,34 @@ export class TransformManager {
     this.initialDistance = null
   }
 
+  setCallbacks(callbacks: {
+    onRender: () => void
+    onTransformEnd: () => void
+  }) {
+    this.renderCallback = callbacks.onRender
+    this.onTransformEnd = callbacks.onTransformEnd
+  }
+
   private handleMove(object: BaseObject, currentPos: Position): void {
     const dx = currentPos.x - this.lastMousePos!.x
     const dy = currentPos.y - this.lastMousePos!.y
 
     object.transform.position.x += dx
     object.transform.position.y += dy
+  }
+
+  private requestRender(): void {
+    if (this.renderCallback) {
+      if (this.rafId) cancelAnimationFrame(this.rafId)
+      this.rafId = requestAnimationFrame(this.renderCallback)
+    }
+  }
+
+  private cancelRender(): void {
+    if (this.rafId) {
+      cancelAnimationFrame(this.rafId)
+      this.rafId = null
+    }
   }
 
   private handleRotation(object: BaseObject, currentPos: Position): void {

@@ -121,7 +121,7 @@ export class TransformManager {
     while (deltaAngle < -Math.PI) deltaAngle += 2 * Math.PI
 
     const smoothing = 0.5
-    object.transform.rotation +=
+    object.transform.rotation =
       this.initialTransform!.rotation + deltaAngle * smoothing
   }
 

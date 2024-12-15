@@ -1,5 +1,5 @@
-import { Canvas } from "@/app/components/canvas/root";
-import { GridSmallBackground } from "@/app/components/grid-bg";
+import { Canvas } from "@/components/canvas/root"
+import { GridSmallBackground } from "@/components/grid-bg"
 
 export default function Home() {
   return (
@@ -7,5 +7,5 @@ export default function Home() {
       <GridSmallBackground />
       <Canvas />
     </div>
-  );
+  )
 }

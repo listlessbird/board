@@ -3,6 +3,7 @@
 import { MouseEvtHandlers } from "@/app/components/canvas/mouse-evt-handlers"
 import { useCanvas } from "@/app/components/canvas/use-canvas"
 import { useCanvasKeyBoardEvents } from "@/app/components/canvas/use-canvas-kb-events"
+import { useAnimationFrame } from "@/app/components/canvas/use-animation-frame"
 import { useTextEditing } from "@/app/components/canvas/use-text-editing"
 import { BaseObject } from "@/lib/canvas/objects/base"
 import { TextObject } from "@/lib/canvas/objects/text"
@@ -30,6 +31,8 @@ export function Canvas() {
     objects.forEach((obj) => obj.render(context))
   }, [context, dimensions, objects])
 
+  useAnimationFrame(renderCanvas, [context, dimensions, objects], true)
+
   useEffect(() => {
     if (!canvasRef.current || !context) return
 
@@ -56,10 +59,6 @@ export function Canvas() {
     setObjects,
     selectionManager: selectionManager.current,
   })
-
-  useEffect(() => {
-    renderCanvas()
-  }, [renderCanvas])
 
   const addText = () => {
     setObjects((prev) => {

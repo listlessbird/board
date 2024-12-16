@@ -10,8 +10,9 @@ import { TextObject } from "@/lib/canvas/objects/text"
 import { SelectionManager } from "@/lib/canvas/selection"
 import { TransformManager } from "@/lib/canvas/transform"
 import { useCallback, useEffect, useRef, useState } from "react"
-import { TextStyle } from "@/types"
-import { ToolbarProvider } from "@/context/toolbar"
+import { registerTextActions } from "@/lib/canvas/toolbar/text-actions"
+import { toolbarRegistry } from "@/lib/canvas/toolbar/toolbar-registry"
+import { Toolbar } from "@/components/canvas/toolbar"
 
 export function Canvas() {
   const canvasRef = useRef<HTMLCanvasElement>(null!)
@@ -21,6 +22,10 @@ export function Canvas() {
   const mouseManager = useRef<MouseEvtHandlers | null>(null)
 
   const { dimensions, context } = useCanvas({ canvasRef })
+
+  useEffect(() => {
+    registerTextActions()
+  }, [])
 
   const textEditing = useTextEditing({
     objects,
@@ -62,28 +67,19 @@ export function Canvas() {
     selectionManager: selectionManager.current,
   })
 
-  const handleDeleteObject = useCallback((obj: BaseObject) => {
-    selectionManager.current.clearSelection()
-    setObjects((prev) => prev.filter((o) => o !== obj))
-  }, [])
+  const handleToolbarAction = useCallback(
+    (actionId: string, object: BaseObject) => {
+      const actions = toolbarRegistry.getActions(object.type, object as any)
 
-  const handleObjectUpdate = useCallback(
-    (obj: BaseObject, updates: Partial<BaseObject>) => {
-      setObjects((prev) =>
-        prev.map((o) => {
-          if (o.id === obj.id) {
-            if (o instanceof TextObject && "style" in updates) {
-              o.setStyle(updates.style as Partial<TextStyle>)
-            }
-            Object.assign(o, updates)
+      const action = actions.find((a) => a.id === actionId)
 
-            return o
-          }
-          return o
-        })
-      )
+      if (action) {
+        action.handler(object)
+
+        setObjects([...objects])
+      }
     },
-    []
+    [objects]
   )
 
   const addText = () => {
@@ -102,36 +98,39 @@ export function Canvas() {
   }
 
   return (
-    <ToolbarProvider
-      onObjectUpdate={handleObjectUpdate}
-      onDeleteObject={handleDeleteObject}
-    >
-      <div className="fixed inset-0 overflow-hidden outline-none">
-        <canvas
-          tabIndex={0}
-          ref={canvasRef}
-          className="w-full h-full outline-none"
-          onDoubleClick={(e) => {
-            e.preventDefault()
-            e.stopPropagation()
-            mouseManager.current?.handleDoubleClick(e, objects)
-          }}
-          onMouseDown={(e) => {
-            // e.preventDefault()
-            e.stopPropagation()
-            mouseManager.current?.handleMouseDown(e, objects)
-          }}
-          onMouseMove={(e) => mouseManager.current?.handleMouseMove(e, objects)}
-          onMouseUp={() => mouseManager.current?.handleMouseUp()}
-          onMouseLeave={() => mouseManager.current?.handleMouseLeave()}
-        />
-        <button
-          className="mt-4 px-4 py-2 bg-blue-500 text-white rounded absolute top-0"
-          onClick={addText}
-        >
-          Add Text
-        </button>
-      </div>
-    </ToolbarProvider>
+    <div className="fixed inset-0 overflow-hidden outline-none">
+      <canvas
+        tabIndex={0}
+        ref={canvasRef}
+        className="w-full h-full outline-none"
+        onDoubleClick={(e) => {
+          e.preventDefault()
+          e.stopPropagation()
+          mouseManager.current?.handleDoubleClick(e, objects)
+        }}
+        onMouseDown={(e) => {
+          // e.preventDefault()
+          e.stopPropagation()
+          mouseManager.current?.handleMouseDown(e, objects)
+        }}
+        onMouseMove={(e) => mouseManager.current?.handleMouseMove(e, objects)}
+        onMouseUp={() => mouseManager.current?.handleMouseUp()}
+        onMouseLeave={() => mouseManager.current?.handleMouseLeave()}
+      />
+
+      <Toolbar
+        selectedObject={
+          selectionManager.current.getSelectedObjects()[0] || null
+        }
+        onAction={handleToolbarAction}
+      />
+
+      <button
+        className="mt-4 px-4 py-2 bg-blue-500 text-white rounded absolute top-0"
+        onClick={addText}
+      >
+        Add Text
+      </button>
+    </div>
   )
 }

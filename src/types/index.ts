@@ -1,3 +1,4 @@
+import { BaseObject } from "@/lib/canvas/objects/base"
 import { TextObject } from "@/lib/canvas/objects/text"
 
 export interface Position {
@@ -24,7 +25,7 @@ export interface Bounds {
   bottom: number
 }
 
-export type CanvasObjectType = "text"
+export type CanvasObjectType = "text" | "image"
 
 export interface CanvasObject {
   id: string
@@ -80,4 +81,33 @@ export type TextStyle = {
 
 export type ObjectTypeMap = {
   text: TextObject
+  image: never
+}
+
+export type ToolbarActionHandler = <T extends BaseObject>(obj: T) => void
+
+export interface ToolbarAction {
+  id: string
+  label: string
+  icon?: React.ComponentType
+  // determines if the action is visible based on the object (e.g. dont need to show font size for image)
+  isVisible?: (obj: BaseObject) => boolean
+  // action is part of a group
+  group?: string
+
+  handler: ToolbarActionHandler
+  // keyboard shortcut
+  shortcut?: string
+  // order in group
+  order?: number
+}
+
+export interface ToolbarActionGroup {
+  id: string
+  label: string
+  order: number
+}
+
+export type ToolbarActionRegistry = {
+  [K in keyof ObjectTypeMap]: ToolbarAction[]
 }

@@ -1,6 +1,7 @@
 import {
+  GlobalToolbarAction,
+  ObjectToolbarAction,
   ObjectTypeMap,
-  ToolbarAction,
   ToolbarActionGroup,
   ToolbarActionRegistry,
 } from "@/types"
@@ -33,14 +34,14 @@ class ToolbarRegistry {
     this.groups.sort((a, b) => a.order - b.order)
   }
 
-  registerGlobalAction(action: ToolbarAction) {
+  registerGlobalAction(action: GlobalToolbarAction) {
     this.actions.global.push({ ...action, global: true })
     this.actions.global.sort((a, b) => (a.order || 0) - (b.order || 0))
   }
 
   registerAction<T extends keyof ObjectTypeMap>(
     objectType: T,
-    action: ToolbarAction
+    action: ObjectToolbarAction
   ) {
     if (!this.actions.objectSpecific[objectType]) {
       this.actions.objectSpecific[objectType] = []
@@ -60,14 +61,14 @@ class ToolbarRegistry {
     })
   }
 
-  getGlobalActions(): ToolbarAction[] {
+  getGlobalActions(): GlobalToolbarAction[] {
     return this.actions.global
   }
 
   getObjectActions<T extends keyof ObjectTypeMap>(
     objectType: T,
     obj: ObjectTypeMap[T]
-  ): ToolbarAction[] {
+  ): ObjectToolbarAction[] {
     const actions = this.actions.objectSpecific[objectType] || []
     return actions.filter((a) => !a.isVisible || a.isVisible(obj))
   }

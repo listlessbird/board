@@ -1,6 +1,7 @@
 import { BaseObject } from "@/lib/canvas/objects/base"
 import { toolbarRegistry } from "@/lib/canvas/toolbar/toolbar-registry"
-import { memo, useMemo } from "react"
+import { GlobalToolbarAction, ObjectToolbarAction } from "@/types"
+import { useMemo } from "react"
 
 type ToolbarProps<T extends BaseObject = BaseObject> = {
   selectedObject: T | null
@@ -26,7 +27,10 @@ export function Toolbar<T extends BaseObject>({
 
   const groups = useMemo(() => toolbarRegistry.getGroups(), [])
 
-  const renderActionButton = (a: (typeof globalActions)[0], obj?: T) => (
+  const renderActionButton = (
+    a: GlobalToolbarAction | ObjectToolbarAction<T>,
+    obj?: T
+  ) => (
     <button
       key={a.id}
       onClick={() => onAction(a.id, obj)}
@@ -59,7 +63,9 @@ export function Toolbar<T extends BaseObject>({
 
             return (
               <div key={g.id} className="flex gap-2">
-                {groupActions.map((a) => renderActionButton(a, selectedObject))}
+                {groupActions.map((a) =>
+                  renderActionButton(a, selectedObject as any)
+                )}
 
                 {g.id !== groups[groups.length - 1].id && (
                   <div className="w-px h-auto bg-slate-600" />

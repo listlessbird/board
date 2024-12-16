@@ -12,6 +12,7 @@ export function registerTextGlobalActions(
     label: "Add Text",
     icon: Type,
     order: 0,
+    global: true,
     handler: () => {
       const newText = new TextObject(`Listless's Board`, {
         x: (Math.random() * canvas.width) / 2,

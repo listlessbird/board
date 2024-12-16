@@ -6,7 +6,6 @@ import { useCanvasKeyBoardEvents } from "@/components/canvas/use-canvas-kb-event
 import { useAnimationFrame } from "@/components/canvas/use-animation-frame"
 import { useTextEditing } from "@/components/canvas/use-text-editing"
 import { BaseObject } from "@/lib/canvas/objects/base"
-import { TextObject } from "@/lib/canvas/objects/text"
 import { SelectionManager } from "@/lib/canvas/selection"
 import { TransformManager } from "@/lib/canvas/transform"
 import { useCallback, useEffect, useRef, useState } from "react"
@@ -90,12 +89,12 @@ export function Canvas() {
           setObjects([...objects])
         }
       } else {
-        const actions = toolbarRegistry
+        const action = toolbarRegistry
           .getGlobalActions()
           .find((a) => a.id === actionId)
 
-        if (actions) {
-          actions.handler(undefined)
+        if (action && action.global) {
+          action.handler()
         }
       }
     },

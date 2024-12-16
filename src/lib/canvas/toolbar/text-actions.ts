@@ -1,7 +1,27 @@
+import { BaseObject } from "@/lib/canvas/objects/base"
 import { TextObject } from "@/lib/canvas/objects/text"
 import { toolbarRegistry } from "@/lib/canvas/toolbar/toolbar-registry"
-import { Bold, FlipHorizontal, Italic } from "lucide-react"
+import { Bold, FlipHorizontal, Italic, Type } from "lucide-react"
 
+export function registerTextGlobalActions(
+  canvas: HTMLCanvasElement,
+  addObject: (obj: BaseObject) => void
+) {
+  toolbarRegistry.registerGlobalAction({
+    id: "add-text",
+    label: "Add Text",
+    icon: Type,
+    order: 0,
+    handler: () => {
+      const newText = new TextObject(`Listless's Board`, {
+        x: (Math.random() * canvas.width) / 2,
+        y: (Math.random() * canvas.height) / 2,
+      })
+
+      addObject(newText)
+    },
+  })
+}
 export function registerTextActions() {
   toolbarRegistry.registerAction("text", {
     id: "font-bold",

@@ -84,22 +84,26 @@ export type ObjectTypeMap = {
   image: never
 }
 
-export type ToolbarActionHandler = <T extends BaseObject>(obj: T) => void
+export type ToolbarActionHandler<T extends BaseObject = BaseObject> = (
+  obj: T
+) => void
 
-export interface ToolbarAction {
+export interface ToolbarAction<T extends BaseObject = BaseObject> {
   id: string
   label: string
   icon?: React.ComponentType
   // determines if the action is visible based on the object (e.g. dont need to show font size for image)
-  isVisible?: (obj: BaseObject) => boolean
+  isVisible?: (obj: T) => boolean
   // action is part of a group
   group?: string
 
-  handler: ToolbarActionHandler
+  handler: ToolbarActionHandler<T>
   // keyboard shortcut
   shortcut?: string
   // order in group
   order?: number
+  // action is global (e.g. add/delete object)
+  global?: boolean
 }
 
 export interface ToolbarActionGroup {
@@ -109,5 +113,8 @@ export interface ToolbarActionGroup {
 }
 
 export type ToolbarActionRegistry = {
-  [K in keyof ObjectTypeMap]: ToolbarAction[]
+  global: ToolbarAction[]
+  objectSpecific: {
+    [K in keyof ObjectTypeMap]: ToolbarAction[]
+  }
 }

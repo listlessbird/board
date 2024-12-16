@@ -10,7 +10,10 @@ import { TextObject } from "@/lib/canvas/objects/text"
 import { SelectionManager } from "@/lib/canvas/selection"
 import { TransformManager } from "@/lib/canvas/transform"
 import { useCallback, useEffect, useRef, useState } from "react"
-import { registerTextActions } from "@/lib/canvas/toolbar/text-actions"
+import {
+  registerTextActions,
+  registerTextGlobalActions,
+} from "@/lib/canvas/toolbar/text-actions"
 import { toolbarRegistry } from "@/lib/canvas/toolbar/toolbar-registry"
 import { Toolbar } from "@/components/canvas/toolbar"
 
@@ -22,10 +25,6 @@ export function Canvas() {
   const mouseManager = useRef<MouseEvtHandlers | null>(null)
 
   const { dimensions, context } = useCanvas({ canvasRef })
-
-  useEffect(() => {
-    registerTextActions()
-  }, [])
 
   const textEditing = useTextEditing({
     objects,
@@ -67,35 +66,54 @@ export function Canvas() {
     selectionManager: selectionManager.current,
   })
 
+  useEffect(() => {
+    registerTextActions()
+    registerTextGlobalActions(canvasRef.current!, (obj) =>
+      setObjects((prev) => [...prev, obj])
+    )
+  }, [])
+
   const handleToolbarAction = useCallback(
-    (actionId: string, object: BaseObject) => {
-      const actions = toolbarRegistry.getActions(object.type, object as any)
+    (actionId: string, object?: BaseObject) => {
+      if (object) {
+        const actions = toolbarRegistry.getObjectActions(
+          object.type,
+          object as any
+        )
 
-      const action = actions.find((a) => a.id === actionId)
+        const action = actions.find((a) => a.id === actionId)
 
-      if (action) {
-        action.handler(object)
+        if (action) {
+          action.handler(object)
+          setObjects([...objects])
+        }
+      } else {
+        const actions = toolbarRegistry
+          .getGlobalActions()
+          .find((a) => a.id === actionId)
 
-        setObjects([...objects])
+        if (actions) {
+          actions.handler(undefined)
+        }
       }
     },
     [objects]
   )
 
-  const addText = () => {
-    setObjects((prev) => {
-      const newText = new TextObject(`Listless's Board`, {
-        x: (Math.random() * canvasRef.current!.width) / 2,
-        y: (Math.random() * canvasRef.current!.height) / 2,
-      })
+  // const addText = () => {
+  //   setObjects((prev) => {
+  //     const newText = new TextObject(`Listless's Board`, {
+  //       x: (Math.random() * canvasRef.current!.width) / 2,
+  //       y: (Math.random() * canvasRef.current!.height) / 2,
+  //     })
 
-      newText.setUpdateCallback(() => {
-        setObjects((cur) => [...cur])
-      })
+  //     newText.setUpdateCallback(() => {
+  //       setObjects((cur) => [...cur])
+  //     })
 
-      return [...prev, newText]
-    })
-  }
+  //     return [...prev, newText]
+  //   })
+  // }
 
   return (
     <div className="fixed inset-0 overflow-hidden outline-none">
@@ -125,12 +143,12 @@ export function Canvas() {
         onAction={handleToolbarAction}
       />
 
-      <button
+      {/* <button
         className="mt-4 px-4 py-2 bg-blue-500 text-white rounded absolute top-0"
         onClick={addText}
       >
         Add Text
-      </button>
+      </button> */}
     </div>
   )
 }

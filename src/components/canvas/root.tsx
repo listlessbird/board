@@ -16,6 +16,7 @@ import {
 } from "@/lib/canvas/toolbar/text-actions"
 import { toolbarRegistry } from "@/lib/canvas/toolbar/toolbar-registry"
 import { Toolbar } from "@/components/canvas/toolbar"
+import { useCanvasSelection } from "@/components/canvas/use-canvas-selection"
 
 export function Canvas() {
   const canvasRef = useRef<HTMLCanvasElement>(null!)
@@ -25,6 +26,7 @@ export function Canvas() {
   const mouseManager = useRef<MouseEvtHandlers | null>(null)
 
   const { dimensions, context } = useCanvas({ canvasRef })
+  const selectedObject = useCanvasSelection(selectionManager.current)
 
   const textEditing = useTextEditing({
     objects,
@@ -136,12 +138,7 @@ export function Canvas() {
         onMouseLeave={() => mouseManager.current?.handleMouseLeave()}
       />
 
-      <Toolbar
-        selectedObject={
-          selectionManager.current.getSelectedObjects()[0] || null
-        }
-        onAction={handleToolbarAction}
-      />
+      <Toolbar selectedObject={selectedObject} onAction={handleToolbarAction} />
 
       {/* <button
         className="mt-4 px-4 py-2 bg-blue-500 text-white rounded absolute top-0"

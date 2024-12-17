@@ -1,4 +1,5 @@
 import { BaseObject } from "@/lib/canvas/objects/base"
+import { ImageObject } from "@/lib/canvas/objects/image"
 import { TextObject } from "@/lib/canvas/objects/text"
 
 export interface Position {
@@ -81,7 +82,7 @@ export type TextStyle = {
 
 export type ObjectTypeMap = {
   text: TextObject
-  image: never
+  image: ImageObject
 }
 
 interface BaseToolbarAction {

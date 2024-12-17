@@ -28,20 +28,29 @@ export function useImageUpload(
 
   const validateAndProcessImage = useCallback(
     async (file: File): Promise<string> => {
-      if (!options.allowedTypes?.includes(file.type)) {
-        throw new Error("Invalid file type")
-      }
+      return new Promise((resolve, reject) => {
+        if (!options.allowedTypes?.includes(file.type)) {
+          reject(new Error(`Invalid file type: ${file.type}`))
+          return
+        }
 
-      const sizeInMb = file.size / (1024 * 1024)
-      if (options.maxSizeInMB && sizeInMb > options.maxSizeInMB) {
-        throw new Error("File size exceeds maximum size")
-      }
+        const sizeInMb = file.size / (1024 * 1024)
+        if (options.maxSizeInMB && sizeInMb > options.maxSizeInMB) {
+          reject(
+            new Error(
+              `File size ${sizeInMb.toFixed(1)}MB exceeds maximum size ${
+                options.maxSizeInMB
+              }MB`
+            )
+          )
+          return
+        }
 
-      return new Promise((res, rej) => {
         const reader = new FileReader()
 
-        reader.onload = async (e) => {
+        reader.onload = () => {
           const image = new Image()
+          image.src = reader.result as string
 
           image.onload = () => {
             if (
@@ -49,20 +58,21 @@ export function useImageUpload(
               (image.width > options.maxDimensions.width ||
                 image.height > options.maxDimensions.height)
             ) {
-              rej(new Error("Image dimensions exceed maximum allowed dim"))
+              reject(
+                new Error(
+                  `Image dimensions ${image.width}x${image.height} exceed maximum allowed ${options.maxDimensions.width}x${options.maxDimensions.height}`
+                )
+              )
               return
             }
-            res(e.target?.result as string)
-          }
-          image.src = e.target?.result as string
-
-          image.onerror = () => {
-            rej(new Error("Failed to load image"))
+            resolve(reader.result as string)
           }
 
-          reader.onerror = () => rej(new Error("Failed to read image"))
-          reader.readAsDataURL(file)
+          image.onerror = () => reject(new Error("Failed to load image"))
         }
+
+        reader.onerror = () => reject(new Error("Failed to read file"))
+        reader.readAsDataURL(file)
       })
     },
     [options]
@@ -74,17 +84,23 @@ export function useImageUpload(
       setIsLoading(true)
 
       try {
+        const imageFiles = Array.from(files).filter((f) =>
+          f.type.startsWith("image/")
+        )
+
+        if (imageFiles.length === 0) {
+          throw new Error("No valid image files found")
+        }
+
         const results = await Promise.all(
-          Array.from(files)
-            .filter((f) => f.type.startsWith("image/"))
-            .map((f) => validateAndProcessImage(f))
+          imageFiles.map((f) => validateAndProcessImage(f))
         )
 
         return results
-      } catch (error) {
-        setError(
-          error instanceof Error ? error.message : "Failed to process Image"
-        )
+      } catch (err) {
+        const message =
+          err instanceof Error ? err.message : "Failed to process images"
+        setError(message)
         return []
       } finally {
         setIsLoading(false)
@@ -95,13 +111,13 @@ export function useImageUpload(
 
   const handlePaste = useCallback(
     async (e: ClipboardEvent) => {
-      const items = e.clipboardData?.items
-      if (!items) return []
-
-      const imageFiles = Array.from(items)
+      const items = Array.from(e.clipboardData?.items || [])
+      const imageFiles = items
         .filter((item) => item.type.startsWith("image/"))
         .map((item) => item.getAsFile())
         .filter((f): f is File => f !== null)
+
+      if (imageFiles.length === 0) return []
 
       return handleFiles(imageFiles)
     },
@@ -111,7 +127,18 @@ export function useImageUpload(
   const handleDrop = useCallback(
     async (e: React.DragEvent) => {
       e.preventDefault()
-      return handleFiles(e.dataTransfer.files)
+      e.stopPropagation()
+      const items = Array.from(e.dataTransfer.items || [])
+      const files = items
+        .filter(
+          (item) => item.kind === "file" && item.type.startsWith("image/")
+        )
+        .map((item) => item.getAsFile())
+        .filter((f): f is File => f !== null)
+
+      if (files.length === 0) return []
+
+      return handleFiles(files)
     },
     [handleFiles]
   )

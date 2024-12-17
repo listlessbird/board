@@ -16,6 +16,11 @@ import {
 import { toolbarRegistry } from "@/lib/canvas/toolbar/toolbar-registry"
 import { Toolbar } from "@/components/canvas/toolbar"
 import { useCanvasSelection } from "@/components/canvas/use-canvas-selection"
+import { useCanvasImg } from "@/components/canvas/use-canvas-img"
+import {
+  registerGlobalImgActions,
+  registerImageActions,
+} from "@/lib/canvas/toolbar/img-actions"
 
 export function Canvas() {
   const canvasRef = useRef<HTMLCanvasElement>(null!)
@@ -28,6 +33,17 @@ export function Canvas() {
   const selectedObject = useCanvasSelection(selectionManager.current)
 
   const textEditing = useTextEditing({
+    objects,
+    setObjects,
+  })
+
+  /**
+   * TODO: display errors if any while adding imgs
+   * scale down large images relative to the current canvas dimensions
+   */
+
+  const { addImageObject, handleDrop, handleGlobalPaste } = useCanvasImg({
+    canvas: canvasRef,
     objects,
     setObjects,
   })
@@ -69,7 +85,11 @@ export function Canvas() {
 
   useEffect(() => {
     registerTextActions()
+    registerImageActions()
     registerTextGlobalActions(canvasRef.current!, (obj) =>
+      setObjects((prev) => [...prev, obj])
+    )
+    registerGlobalImgActions(canvasRef.current!, (obj) =>
       setObjects((prev) => [...prev, obj])
     )
   }, [])
@@ -135,6 +155,8 @@ export function Canvas() {
         onMouseMove={(e) => mouseManager.current?.handleMouseMove(e, objects)}
         onMouseUp={() => mouseManager.current?.handleMouseUp()}
         onMouseLeave={() => mouseManager.current?.handleMouseLeave()}
+        onDrop={handleDrop}
+        onDragOver={(e) => e.preventDefault()}
       />
 
       <Toolbar selectedObject={selectedObject} onAction={handleToolbarAction} />

@@ -12,6 +12,55 @@ export interface Dimensions {
   height: number
 }
 
+export interface Camera {
+  x: number
+  y: number
+  zoom: number
+  isDragging: boolean
+  lastMousePosition: Position | null
+}
+
+export interface CanvasControllerOptions {
+  initialZoom?: number
+  gridSize?: number
+  /*
+    ┌───────────────────────────┐
+    │     Culling Margin        │
+    │  ┌─────────────────────┐  │
+    │  │                     │  │
+    │  │    Visible          │  │
+    │  │    Viewport         │  │
+    │  │                     │  │
+    │  └─────────────────────┘  │
+    │                           │
+    └───────────────────────────┘
+*/
+  cullingMargin?: number
+  minZoom?: number
+  maxZoom?: number
+  debug?: boolean
+}
+
+export interface ViewPortBounds {
+  top: number
+  left: number
+  right: number
+  bottom: number
+  width: number
+  height: number
+}
+
+export type CanvasEvents = {
+  // retarded editor changes render string to normal property
+  "render:": () => void
+  "objects:change": (objects: BaseObject[]) => void
+  "selection:change": (selected: BaseObject | null) => void
+  "camera:change": (camera: Camera) => void
+  "viewport:change": (bounds: ViewPortBounds) => void
+  "zoom:change": (zoom: number) => void
+  "error:": (error: Error) => void
+}
+
 export interface Transform {
   position: Position
   rotation: number

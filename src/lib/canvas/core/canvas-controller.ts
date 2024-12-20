@@ -56,6 +56,13 @@ export class CanvasController extends CanvasEventEmitter<CanvasEvents> {
 
     this.selectionManger = new SelectionManager()
     this.transformManager = new TransformManager()
+    // this.mouseManager = new MouseEvtHandlers(
+    //   { current: canvas },
+    //   this.selectionManger,
+    //   this.transformManager,
+    //   this.handleObjectsChange,
+
+    // )
 
     this.selectionManger.subscribe(() => {
       this.emit(
@@ -65,6 +72,69 @@ export class CanvasController extends CanvasEventEmitter<CanvasEvents> {
     })
 
     this.startRenderLoop()
+  }
+
+  private render(): void {
+    if (!this.context || !this.isDestroyed) return
+
+    this.context.clearRect(
+      0,
+      0,
+      this.dimenstions.width,
+      this.dimenstions.height
+    )
+
+    this.context.save()
+
+    this.context.translate(this.camera.x, this.camera.y)
+    this.context.scale(this.camera.zoom, this.camera.zoom)
+
+    this.drawGrid()
+
+    this.objects.forEach((obj) => {
+      if (this.isInViewPort(obj)) {
+        obj.render(this.context)
+      }
+    })
+
+    this.context.restore()
+    this.emit("render:")
+  }
+
+  private startRenderLoop(): void {
+    const loop = () => {
+      this.render()
+      this.rafId = requestAnimationFrame(loop)
+    }
+
+    this.rafId = requestAnimationFrame(loop)
+  }
+
+  private stopRenderLoop(): void {
+    if (this.rafId) {
+      cancelAnimationFrame(this.rafId)
+      this.rafId = null
+    }
+  }
+
+  private handleObjectsChange(): void {
+    this.emit("objects:change", [...this.objects])
+    this.render()
+  }
+
+  private handleMouseLeave() {
+    this.endPan()
+    this.mouseManager.handleMouseLeave()
+  }
+
+  private handleResize() {
+    const rect = this.canvas.getBoundingClientRect()
+    this.setDimensions(rect.width, rect.height)
+  }
+
+  private handleObjectsChange(): void {
+    this.emit("objects:change", [...this.objects])
+    this.render()
   }
 
   private screenToWorld(point: Position): Position {

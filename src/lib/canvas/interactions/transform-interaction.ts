@@ -25,7 +25,10 @@ export class RootTransformInteraction implements InteractionHandler {
   }
 
   getCursorStyle(controlPoint: ControlPointType): string {
-    return this.transformManager.getCursorStyle(controlPoint)
+    if (controlPoint !== ControlPointType.None) {
+      return this.transformManager.getCursorStyle(controlPoint)
+    }
+    return "default"
   }
 
   handleMouseDown(

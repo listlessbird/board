@@ -22,6 +22,12 @@ export class TransformManager {
     controlPoint: ControlPointType,
     object: BaseObject
   ): void {
+    console.debug("[TransformManager] Starting drag:", {
+      position,
+      controlPoint,
+      objectId: object.id,
+      objectType: object.type,
+    })
     this.isDragging = true
     this.lastMousePos = position
     this.activeControlPoint = controlPoint
@@ -41,7 +47,10 @@ export class TransformManager {
   }
 
   drag(object: BaseObject, currentPos: Position): void {
-    if (!this.isDragging || !this.lastMousePos || !this.initialTransform) return
+    if (!this.isDragging || !this.lastMousePos || !this.initialTransform) {
+      console.debug("[TransformManager] Drag stopped - not dragging")
+      return
+    }
 
     switch (this.activeControlPoint) {
       case ControlPointType.None:

@@ -14,7 +14,7 @@ export class SelectInteraction implements InteractionHandler {
   constructor(private selectionManager: SelectionManager) {}
 
   canHandle(obj: BaseObject): boolean {
-    console.log("[DEBUG] SelectInteraction canHandle:", obj.id)
+    console.log("[DEBUG] SelectInteraction canHandle:", this.id)
     return true
   }
 
@@ -29,7 +29,7 @@ export class SelectInteraction implements InteractionHandler {
       position,
     })
     if (obj.containsPoint(position)) {
-      console.log("[DEBUG] SelectInteraction selecting object:", obj.id)
+      console.log("[DEBUG] SelectInteraction selecting object:", obj.type)
 
       this.selectionManager.select(obj)
       return { handled: true, stopPropagation: false }

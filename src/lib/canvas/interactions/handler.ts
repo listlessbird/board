@@ -20,8 +20,9 @@ export class InteractionManager {
     lastMousePosition: null,
   }
 
+  private loggingEnabled: boolean = false
   constructor(interactionHandlers: InteractionHandler[]) {
-    this.handlers = interactionHandlers.sort((a, b) => a.priority - b.priority)
+    this.handlers = interactionHandlers.sort((a, b) => b.priority - a.priority)
   }
 
   handleMouseDown(
@@ -93,16 +94,16 @@ export class InteractionManager {
     e: KeyboardEvent,
     selectedObject: BaseObject
   ): void {
-    console.log(`[DEBUG] Event triggered: ${eventName}`, e)
+    this.log(`[DEBUG] Event triggered: ${eventName}`, e)
 
     if (this.activeHandler) {
       const handle = this.activeHandler[eventName]
       if (handle) {
-        console.log(
+        this.log(
           `[DEBUG] Active handler found: ${this.activeHandler.constructor.name}`
         )
         const handled = handle.call(this.activeHandler, e, selectedObject)
-        console.log(`[DEBUG] Active handler handled event: ${handled}`)
+        this.log(`[DEBUG] Active handler handled event: ${handled}`)
         if (handled) {
           e.preventDefault()
           return
@@ -111,16 +112,16 @@ export class InteractionManager {
     }
 
     for (const handler of this.handlers) {
-      console.log(`[DEBUG] Checking handler: ${handler.constructor.name}`)
+      this.log(`[DEBUG] Checking handler: ${handler.constructor.name}`)
       if (!handler.isEnabled) {
-        console.log(
+        this.log(
           `[DEBUG] Skipping disabled handler: ${handler.constructor.name}`
         )
         continue
       }
 
       if (!handler.canHandle(selectedObject)) {
-        console.log(
+        this.log(
           `[DEBUG] Handler cannot handle selected object: ${handler.constructor.name}`
         )
         continue
@@ -128,25 +129,23 @@ export class InteractionManager {
 
       const handlerFn = handler[eventName]
       if (!handlerFn) {
-        console.log(
-          `[DEBUG] Handler does not have method for event: ${eventName}`
-        )
+        this.log(`[DEBUG] Handler does not have method for event: ${eventName}`)
         continue
       }
 
       const matchesShortcut = handler.shortcuts?.some((shortcutHandler) =>
         this.matchesKeyCombo(e, shortcutHandler.combo)
       )
-      console.log(
+      this.log(
         `[DEBUG] Shortcut match for handler ${handler.constructor.name}: ${matchesShortcut}`
       )
 
       if (matchesShortcut) {
         const handled = handlerFn.call(handler, e, selectedObject)
-        console.log(`[DEBUG] Handler processed event: ${handled}`)
+        this.log(`[DEBUG] Handler processed event: ${handled}`)
         if (handled) {
           this.activeHandler = handler
-          console.log(
+          this.log(
             `[DEBUG] Active handler updated to: ${handler.constructor.name}`
           )
         }
@@ -155,7 +154,7 @@ export class InteractionManager {
       }
     }
 
-    console.log(`[DEBUG] Event processing completed: ${eventName}`)
+    this.log(`[DEBUG] Event processing completed: ${eventName}`)
   }
   private handleMouseEvent(
     eventName: keyof Pick<
@@ -170,19 +169,12 @@ export class InteractionManager {
     findObjectAtPoint: (pos: Position) => BaseObject | null
   ): void {
     const pos = this.getMousePos(e, canvas)
-    // console.log(`[DEBUG] Mouse position:`, pos)
+    // this.log(`[DEBUG] Mouse position:`, pos)
 
     const hitObject = findObjectAtPoint(pos)
 
     const controlPoint =
       hitObject?.getControlPointAtPosition(pos) ?? ControlPointType.None
-
-    console.log(`[DEBUG] ${eventName}:`, {
-      pos,
-      hitObject: hitObject?.id,
-      controlPoint,
-      activeHandler: this.activeHandler?.id,
-    })
 
     const context: MouseInteractionContext = {
       state: this.state,
@@ -193,29 +185,76 @@ export class InteractionManager {
 
     if (eventName === "handleMouseDown") {
       this.activeHandler = null
+      this.state.isDragging = true
+      this.state.lastMousePosition = pos
+      this.state.activeControlPoint = controlPoint
 
       if (hitObject) {
         for (const handler of this.handlers) {
           if (!handler.isEnabled || !handler.canHandle(hitObject)) continue
 
-          console.debug(`Trying to handle ${eventName} for ${handler.id}`)
+          this.log(`Trying to handle ${eventName} for ${handler.id}`)
 
           const handlerFn = handler[eventName]
 
           if (!handlerFn) continue
 
           const result = handlerFn.call(handler, e, hitObject, context)
-          console.log(`[DEBUG] Handler ${handler.id} result:`, result)
+          this.log(`[DEBUG] Handler ${handler.id} result:`, result)
 
           if (result.handled) {
             this.activeHandler = handler
-            console.log(`[DEBUG] Active handler set to: ${handler.id}`)
+            this.log(`[DEBUG] Active handler set to: ${handler.id}`)
+            if (result.stopPropagation) break
+          }
+        }
+      }
+      return
+    }
+    if (eventName === "handleMouseUp") {
+      this.log(`[DEBUG] MouseUp - active handler:`, this.activeHandler?.id)
+      if (this.activeHandler?.handleMouseUp) {
+        this.activeHandler.handleMouseUp(e)
+      }
+      this.state.isDragging = false
+      this.state.lastMousePosition = null
+      this.activeHandler = null
+      return
+    }
+
+    if (eventName === "handleMouseMove") {
+      // If dragging, always try the active handler first
+      if (this.state.isDragging && this.activeHandler) {
+        const handle = this.activeHandler[eventName]
+        if (handle && hitObject) {
+          this.log(
+            `[DEBUG] Dragging with active handler:`,
+            this.activeHandler.id
+          )
+          const result = handle.call(this.activeHandler, e, hitObject, context)
+          if (result.handled) {
+            this.state.lastMousePosition = pos
+            return
+          }
+        }
+      }
+
+      // If no active handler or it didn't handle it, try other handlers
+      if (hitObject) {
+        for (const handler of this.handlers) {
+          if (!handler.isEnabled || !handler.canHandle(hitObject)) continue
+
+          const handlerFn = handler[eventName]
+          if (!handlerFn) continue
+
+          const result = handlerFn.call(handler, e, hitObject, context)
+          if (result.handled) {
+            this.state.lastMousePosition = pos
             if (result.stopPropagation) break
           }
         }
       }
     }
-    return
   }
 
   private getMousePos(e: MouseEvent, canvas: HTMLCanvasElement): Position {
@@ -245,5 +284,10 @@ export class InteractionManager {
     this.handlers = []
     this.activeHandler = null
     this.resetState()
+  }
+  private log(...args: any[]): void {
+    if (this.loggingEnabled) {
+      console.debug(`[${this.constructor.name}]`, ...args)
+    }
   }
 }

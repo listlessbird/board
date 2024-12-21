@@ -33,39 +33,8 @@ export function Canvas() {
     if (!context) return
     context.clearRect(0, 0, dimensions.width, dimensions.height)
 
-    if (process.env.NODE_ENV === "development") {
-      context.save()
-      context.strokeStyle = "rgba(255,255,255,0.1)"
-      context.beginPath()
-      for (let x = 0; x < dimensions.width; x += 100) {
-        context.moveTo(x, 0)
-        context.lineTo(x, dimensions.height)
-      }
-      for (let y = 0; y < dimensions.height; y += 100) {
-        context.moveTo(0, y)
-        context.lineTo(dimensions.width, y)
-      }
-      context.stroke()
-      context.restore()
-    }
-
     objects.forEach((obj) => {
       obj.render(context)
-
-      if (process.env.NODE_ENV === "development") {
-        const bounds = obj.getBounds()
-        context.save()
-        context.strokeStyle = "rgba(255,0,0,0.5)"
-        context.translate(obj.transform.position.x, obj.transform.position.y)
-        context.rotate(obj.transform.rotation)
-        context.strokeRect(
-          bounds.left,
-          bounds.top,
-          bounds.right - bounds.left,
-          bounds.bottom - bounds.top
-        )
-        context.restore()
-      }
     })
   }, [context, dimensions, objects])
 

@@ -30,18 +30,17 @@ export function useCanvasInteractions({
 
   const findObjectAtPoint = useCallback(
     (point: Position): BaseObject | null => {
-      console.log("[DEBUG] Checking point:", point)
-      console.log("[DEBUG] Total objects:", objects.length)
+      // console.log("[DEBUG] Total objects:", objects.length)
 
       for (let i = objects.length - 1; i >= 0; i--) {
         const object = objects[i]
-        console.log(`[DEBUG] Checking object: ${i}`, {
-          id: object.id,
-          type: object.type,
-          selected: object.selected,
-          positon: object.transform.position,
-          contains: object.containsPoint(point),
-        })
+        // console.log(`[DEBUG] Checking object: ${i}`, {
+        //   id: object.id,
+        //   type: object.type,
+        //   selected: object.selected,
+        //   positon: object.transform.position,
+        //   contains: object.containsPoint(point),
+        // })
         if (object.containsPoint(point)) {
           return object
         }
@@ -68,13 +67,13 @@ export function useCanvasInteractions({
         onRender()
       }),
     ]
-    console.log(
-      "[DEBUG] Initialized handlers:",
-      handlers.map((h) => ({
-        id: h.id,
-        priority: h.priority,
-      }))
-    )
+    // console.log(
+    //   "[DEBUG] Initialized handlers:",
+    //   handlers.map((h) => ({
+    //     id: h.id,
+    //     priority: h.priority,
+    //   }))
+    // )
 
     interactionManager.current = new InteractionManager(handlers)
 

@@ -101,10 +101,17 @@ export class ControlPointManager {
   ): ControlPointType {
     const localPoint = transform(point)
 
+    console.debug("[ControlPointManager] Checking point:", {
+      original: point,
+      transformed: localPoint,
+      scale,
+      bounds,
+    })
+
     // rotation handle
     const rotationPoint = {
       x: 0,
-      y: bounds.top - this.rotationHandleOffset / scale,
+      y: bounds.top - this.rotationHandleOffset / Math.abs(scale),
     }
 
     if (this.isPointNearPosition(localPoint, rotationPoint, scale)) {
@@ -114,6 +121,10 @@ export class ControlPointManager {
     const controlPoints = this.getControlPoints(bounds)
     for (let i = 0; i < controlPoints.length; i++) {
       if (this.isPointNearPosition(localPoint, controlPoints[i], scale)) {
+        console.debug("[ControlPointManager] Hit control point:", {
+          index: i,
+          position: controlPoints[i],
+        })
         return i
       }
     }
@@ -127,11 +138,11 @@ export class ControlPointManager {
     position: Position,
     scale: number
   ): boolean {
-    const threshold = this.style.size / scale
+    const threshold = (this.style.size + 4) / Math.abs(scale)
 
     return (
-      Math.abs(point.x - position.x) < threshold / 2 &&
-      Math.abs(point.y - position.y) < threshold / 2
+      Math.abs(point.x - position.x) < threshold &&
+      Math.abs(point.y - position.y) < threshold
     )
   }
 

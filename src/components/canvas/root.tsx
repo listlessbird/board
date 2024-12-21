@@ -18,7 +18,6 @@ import {
   registerGlobalImgActions,
   registerImageActions,
 } from "@/lib/canvas/toolbar/img-actions"
-import { useCanvasInteractions } from "@/components/canvas/use-canvas-interactions"
 
 export function Canvas() {
   const canvasRef = useRef<HTMLCanvasElement>(null!)
@@ -51,15 +50,6 @@ export function Canvas() {
     canvas: canvasRef,
     objects,
     setObjects,
-  })
-
-  useCanvasInteractions({
-    canvas: canvasRef,
-    objects,
-    setObjects,
-    selectionManager: selectionManager.current,
-    transformManager: transformManager.current,
-    onRender: renderCanvas,
   })
 
   useEffect(() => {

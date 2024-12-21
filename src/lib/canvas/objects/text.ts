@@ -1,16 +1,20 @@
 import { ControlPointManager } from "@/lib/canvas/control-points"
 import { BaseObject } from "@/lib/canvas/objects/base"
+import { CANVAS_STYLE } from "@/lib/canvas/style"
 import {
   Bounds,
   ControlPointType,
   Editable,
   Position,
+  StyleRange,
   TextStyle,
   Transform,
   Transformable,
 } from "@/types"
+import { Style } from "util"
 
 export class TextObject extends BaseObject implements Transformable, Editable {
+  private styleRanges: StyleRange[] = []
   private controlPointManager: ControlPointManager
   content: string
   style: TextStyle
@@ -54,11 +58,6 @@ export class TextObject extends BaseObject implements Transformable, Editable {
   render(ctx: CanvasRenderingContext2D): void {
     ctx.save()
 
-    ctx.font = this.font
-    ctx.fillStyle = this.selected ? "#0066ff" : this.style.color
-    ctx.textAlign = "center"
-    ctx.textBaseline = "middle"
-
     ctx.translate(this.transform.position.x, this.transform.position.y)
     ctx.rotate(this.transform.rotation)
     ctx.scale(
@@ -66,7 +65,20 @@ export class TextObject extends BaseObject implements Transformable, Editable {
       this.transform.scale
     )
 
-    ctx.fillText(this.content, 0, 0)
+    let lastEnd = 0
+
+    for (const range of this.styleRanges) {
+      if (lastEnd < range.start) {
+        this.renderTextSegment(ctx, lastEnd, range.start, this.style)
+      }
+
+      this.renderTextSegment(ctx, range.start, range.end, range.style)
+      lastEnd = range.end
+    }
+
+    if (lastEnd < this.content.length) {
+      this.renderTextSegment(ctx, lastEnd, this.content.length, this.style)
+    }
 
     if (this.isEditing) {
       this.renderEditingUI(ctx)
@@ -89,6 +101,38 @@ export class TextObject extends BaseObject implements Transformable, Editable {
     }
 
     ctx.restore()
+  }
+
+  private renderTextSegment(
+    ctx: CanvasRenderingContext2D,
+    start: number,
+    end: number,
+    style: Partial<TextStyle>
+  ): void {
+    const segment = this.content.slice(start, end)
+
+    // segment style
+    const italic = style.italic ? "italic " : ""
+    const weight = style.weight || "normal"
+    ctx.font = `${italic}${weight} ${style.size}px ${style.font}`
+
+    ctx.fillStyle = this.selected
+      ? CANVAS_STYLE.textSelectionColor
+      : style.color || this.style.color
+
+    ctx.textAlign = "center"
+    ctx.textBaseline = "middle"
+
+    const totalWidth = this.getTextWidth(ctx)
+
+    const beforeWidth = ctx.measureText(this.content.slice(0, start)).width
+    const x = -totalWidth / 2 + beforeWidth + ctx.measureText(segment).width / 2
+
+    ctx.fillText(segment, x, 0)
+  }
+
+  private getTextWidth(ctx: CanvasRenderingContext2D): number {
+    return ctx.measureText(this.content).width
   }
 
   private drawBoundingBox(ctx: CanvasRenderingContext2D, bounds: Bounds): void {
@@ -354,5 +398,39 @@ export class TextObject extends BaseObject implements Transformable, Editable {
   setStyle(style: Partial<TextStyle>) {
     this.style = { ...this.style, ...style }
     this.updateFont()
+  }
+
+  setStyleForSelection(style: Partial<TextStyle>): void {
+    if (!this.isEditing || this.selectionStart === null) {
+      this.setStyle(style)
+      return
+    }
+
+    const start = Math.min(this.selectionStart, this.cursorPosition)
+    const end = Math.max(this.selectionStart, this.cursorPosition)
+
+    this.styleRanges.push({
+      start,
+      end,
+      style,
+    })
+
+    this.normalizeStyleRanges()
+  }
+
+  private normalizeStyleRanges() {
+    this.styleRanges.sort((a, b) => a.start - b.start)
+
+    for (let i = 0; i < this.styleRanges.length - 1; i++) {
+      const current = this.styleRanges[i]
+      const next = this.styleRanges[i + 1]
+
+      if (current.end > next.start) {
+        current.end = Math.max(current.end, next.end)
+        current.style = { ...current.style, ...next.style }
+        this.styleRanges.splice(i + 1, 1)
+        i--
+      }
+    }
   }
 }

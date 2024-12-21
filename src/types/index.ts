@@ -129,6 +129,12 @@ export type TextStyle = {
   italic?: boolean
 }
 
+export type StyleRange = {
+  start: number
+  end: number
+  style: Partial<TextStyle>
+}
+
 export type ObjectTypeMap = {
   text: TextObject
   image: ImageObject
@@ -171,4 +177,77 @@ export type ToolbarActionRegistry = {
   objectSpecific: {
     [K in keyof ObjectTypeMap]: ObjectToolbarAction[]
   }
+}
+
+export type KeyCombo = {
+  key: string
+  ctrl?: boolean
+  alt?: boolean
+  shift?: boolean
+  meta?: boolean
+}
+
+export type InteractionState = {
+  isDragging: boolean
+  activeControlPoint: ControlPointType
+  initialTransform: Transform | null
+  initialAngle: number | null
+  initialDistance: number | null
+  lastMousePosition: Position | null
+}
+
+export type MouseInteractionContext = {
+  state: InteractionState
+  position: Position
+  object: BaseObject | null
+  controlPoint: ControlPointType
+}
+
+export type CanvasInteractionHandlerResult = {
+  handled: boolean
+  // let the event propagate to other handlers
+  stopPropagation: boolean
+}
+
+export interface ShortcutHandler {
+  combo: KeyCombo
+  isEnabled: (obj: BaseObject | null) => boolean
+  handle: (obj: BaseObject | null) => void
+}
+export interface InteractionHandler {
+  id: string
+  // higher the number, higher the priority
+  priority: number
+  isEnabled: boolean
+  shortcuts?: ShortcutHandler[]
+
+  canHandle(obj: BaseObject): boolean
+  getCursorStyle?(controlPoint: ControlPointType): string
+  handleMouseDown?(
+    e: MouseEvent,
+    obj: BaseObject,
+    context: MouseInteractionContext
+  ): CanvasInteractionHandlerResult
+  handleMouseMove?(
+    e: MouseEvent,
+    obj: BaseObject,
+    context: MouseInteractionContext
+  ): CanvasInteractionHandlerResult
+  handleMouseUp?(e: MouseEvent): CanvasInteractionHandlerResult
+  handleDoubleClick?(
+    e: MouseEvent,
+    obj: BaseObject,
+    context: MouseInteractionContext
+  ): CanvasInteractionHandlerResult
+
+  handleKeyDown?(
+    e: KeyboardEvent,
+    obj: BaseObject | null
+  ): CanvasInteractionHandlerResult
+  handleKeyUp?(
+    e: KeyboardEvent,
+    obj: BaseObject | null
+  ): CanvasInteractionHandlerResult
+
+  onDisable?(): void
 }

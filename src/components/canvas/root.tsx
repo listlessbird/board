@@ -21,21 +21,16 @@ import {
   registerGlobalImgActions,
   registerImageActions,
 } from "@/lib/canvas/toolbar/img-actions"
+import { useCanvasInteractions } from "@/components/canvas/use-canvas-interactions"
 
 export function Canvas() {
   const canvasRef = useRef<HTMLCanvasElement>(null!)
   const [objects, setObjects] = useState<BaseObject[]>([])
   const selectionManager = useRef(new SelectionManager())
   const transformManager = useRef(new TransformManager())
-  const mouseManager = useRef<MouseEvtHandlers | null>(null)
 
   const { dimensions, context } = useCanvas({ canvasRef })
   const selectedObject = useCanvasSelection(selectionManager.current)
-
-  const textEditing = useTextEditing({
-    objects,
-    setObjects,
-  })
 
   /**
    * TODO: display errors if any while adding imgs
@@ -57,30 +52,19 @@ export function Canvas() {
   useAnimationFrame(renderCanvas, [context, dimensions, objects], true)
 
   useEffect(() => {
-    if (!canvasRef.current || !context) return
-
     transformManager.current.setCallbacks({
       onRender: renderCanvas,
       onTransformEnd: () => setObjects([...objects]),
     })
+  }, [objects, renderCanvas])
 
-    mouseManager.current = new MouseEvtHandlers(
-      canvasRef,
-      selectionManager.current,
-      transformManager.current,
-      setObjects,
-      {
-        startEditing: textEditing.startEditing,
-        handleClickOutside: textEditing.handleClickOutside,
-      }
-    )
-  }, [context, objects, renderCanvas, textEditing])
-
-  useCanvasKeyBoardEvents({
+  useCanvasInteractions({
     canvas: canvasRef,
     objects,
     setObjects,
     selectionManager: selectionManager.current,
+    transformManager: transformManager.current,
+    onRender: renderCanvas,
   })
 
   useEffect(() => {
@@ -120,41 +104,12 @@ export function Canvas() {
     },
     [objects]
   )
-
-  // const addText = () => {
-  //   setObjects((prev) => {
-  //     const newText = new TextObject(`Listless's Board`, {
-  //       x: (Math.random() * canvasRef.current!.width) / 2,
-  //       y: (Math.random() * canvasRef.current!.height) / 2,
-  //     })
-
-  //     newText.setUpdateCallback(() => {
-  //       setObjects((cur) => [...cur])
-  //     })
-
-  //     return [...prev, newText]
-  //   })
-  // }
-
   return (
     <div className="fixed inset-0 overflow-hidden outline-none">
       <canvas
         tabIndex={0}
         ref={canvasRef}
         className="w-full h-full outline-none"
-        onDoubleClick={(e) => {
-          e.preventDefault()
-          e.stopPropagation()
-          mouseManager.current?.handleDoubleClick(e, objects)
-        }}
-        onMouseDown={(e) => {
-          // e.preventDefault()
-          e.stopPropagation()
-          mouseManager.current?.handleMouseDown(e, objects)
-        }}
-        onMouseMove={(e) => mouseManager.current?.handleMouseMove(e, objects)}
-        onMouseUp={() => mouseManager.current?.handleMouseUp()}
-        onMouseLeave={() => mouseManager.current?.handleMouseLeave()}
         onDrop={handleDrop}
         onDragOver={(e) => e.preventDefault()}
       />

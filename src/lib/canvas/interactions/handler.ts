@@ -169,102 +169,63 @@ export class InteractionManager {
     canvas: HTMLCanvasElement,
     findObjectAtPoint: (pos: Position) => BaseObject | null
   ): void {
-    console.log(`[DEBUG] Mouse event triggered: ${eventName}`, e)
-
     const pos = this.getMousePos(e, canvas)
     // console.log(`[DEBUG] Mouse position:`, pos)
 
-    const hitobject = findObjectAtPoint(pos)
-    console.log(`[DEBUG] Hit object:`, hitobject)
+    const hitObject = findObjectAtPoint(pos)
 
     const controlPoint =
-      hitobject?.getControlPointAtPosition(pos) ?? ControlPointType.None
-    console.log(`[DEBUG] Control point type: ${controlPoint}`)
+      hitObject?.getControlPointAtPosition(pos) ?? ControlPointType.None
+
+    console.log(`[DEBUG] ${eventName}:`, {
+      pos,
+      hitObject: hitObject?.id,
+      controlPoint,
+      activeHandler: this.activeHandler?.id,
+    })
 
     const context: MouseInteractionContext = {
       state: this.state,
       position: pos,
-      object: hitobject,
+      object: hitObject,
       controlPoint,
     }
 
-    if (eventName === "handleMouseUp") {
-      if (this.activeHandler?.handleMouseUp) {
-        // console.log(`[DEBUG] Calling active handler's handleMouseUp method.`)
-        this.activeHandler.handleMouseUp(e)
-      }
+    if (eventName === "handleMouseDown") {
       this.activeHandler = null
-      // console.log(`[DEBUG] Active handler reset to null after MouseUp.`)
-      return
-    }
 
-    if (this.activeHandler) {
-      const handle = this.activeHandler[eventName]
-
-      if (handle) {
-        console.log(`[DEBUG] Active handler found for event: ${eventName}`)
-        const result = handle.call(this.activeHandler, e, hitobject!, context)
-
-        console.log(`[DEBUG] Active handler result:`, result)
-
-        if (result.handled) {
-          console.log(`[DEBUG] Event handled by active handler.`)
-          return
-        } else if (eventName === "handleMouseDown") {
-          console.log(`[DEBUG] Resetting active handler on MouseDown event.`)
-          this.activeHandler = null
-        }
-      }
-
-      if (hitobject) {
+      if (hitObject) {
         for (const handler of this.handlers) {
-          console.log(`[DEBUG] Checking handler: ${handler.constructor.name}`)
-          if (!handler.isEnabled || !handler.canHandle(hitobject)) {
-            console.log(`[DEBUG] Skipping handler: ${handler.constructor.name}`)
-            continue
-          }
+          if (!handler.isEnabled || !handler.canHandle(hitObject)) continue
+
+          console.debug(`Trying to handle ${eventName} for ${handler.id}`)
 
           const handlerFn = handler[eventName]
-          if (!handlerFn) {
-            console.log(
-              `[DEBUG] Handler does not have method for event: ${eventName}`
-            )
-            continue
-          }
 
-          const result = handlerFn.call(handler, e, hitobject, context)
-          console.log(`[DEBUG] Handler result:`, result)
+          if (!handlerFn) continue
 
-          if (result.handled && eventName === "handleMouseDown") {
+          const result = handlerFn.call(handler, e, hitObject, context)
+          console.log(`[DEBUG] Handler ${handler.id} result:`, result)
+
+          if (result.handled) {
             this.activeHandler = handler
-            console.log(
-              `[DEBUG] Active handler set to: ${handler.constructor.name}`
-            )
-          }
-
-          if (result.stopPropagation) {
-            console.log(`[DEBUG] Stopping propagation as per handler result.`)
-            break
+            console.log(`[DEBUG] Active handler set to: ${handler.id}`)
+            if (result.stopPropagation) break
           }
         }
-      } else if (eventName === "handleMouseDown") {
-        console.log(
-          `[DEBUG] Resetting active handler as no object was hit on MouseDown.`
-        )
-        this.activeHandler = null
       }
     }
-
-    console.log(`[DEBUG] Mouse event processing completed: ${eventName}`)
+    return
   }
 
   private getMousePos(e: MouseEvent, canvas: HTMLCanvasElement): Position {
     const rect = canvas.getBoundingClientRect()
-    const scaleX = canvas.width / rect.width
-    const scaleY = canvas.height / rect.height
+    // const scaleX = canvas.width / rect.width
+    // const scaleY = canvas.height / rect.height
+    const dpr = window.devicePixelRatio || 1
     return {
-      x: (e.clientX - rect.left) * scaleX,
-      y: (e.clientY - rect.top) * scaleY,
+      x: (e.clientX - rect.left) * dpr,
+      y: (e.clientY - rect.top) * dpr,
     }
   }
 

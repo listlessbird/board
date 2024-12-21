@@ -25,7 +25,15 @@ export class SelectionManager {
   }
 
   select(object: BaseObject): void {
-    console.log("selecting", object)
+    if (!object) {
+      console.warn("[DEBUG] Attempted to select null object")
+      return
+    }
+    console.debug("[DEBUG] SelectionManager selecting:", {
+      objId: object.id,
+      type: object.type,
+      currentSelection: Array.from(this.selectedObjects).map((o) => o.id),
+    })
     this.clearSelection()
     object.selected = true
     this.selectedObjects.add(object)
@@ -56,6 +64,7 @@ export class SelectionManager {
   }
 
   private notifyListeners() {
+    console.log("[DEBUG] SelectionManager notifying listeners")
     this.listeners.forEach((listenerfn) => listenerfn())
   }
 }

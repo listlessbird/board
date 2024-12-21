@@ -1,10 +1,7 @@
 "use client"
 
-import { MouseEvtHandlers } from "@/components/canvas/mouse-evt-handlers"
 import { useCanvas } from "@/components/canvas/use-canvas"
-import { useCanvasKeyBoardEvents } from "@/components/canvas/use-canvas-kb-events"
 import { useAnimationFrame } from "@/components/canvas/use-animation-frame"
-import { useTextEditing } from "@/components/canvas/use-text-editing"
 import { BaseObject } from "@/lib/canvas/objects/base"
 import { SelectionManager } from "@/lib/canvas/selection"
 import { TransformManager } from "@/lib/canvas/transform"
@@ -32,21 +29,44 @@ export function Canvas() {
   const { dimensions, context } = useCanvas({ canvasRef })
   const selectedObject = useCanvasSelection(selectionManager.current)
 
-  /**
-   * TODO: display errors if any while adding imgs
-   * scale down large images relative to the current canvas dimensions
-   */
-
-  const { addImageObject, handleDrop, handleGlobalPaste } = useCanvasImg({
-    canvas: canvasRef,
-    objects,
-    setObjects,
-  })
-
   const renderCanvas = useCallback(() => {
     if (!context) return
     context.clearRect(0, 0, dimensions.width, dimensions.height)
-    objects.forEach((obj) => obj.render(context))
+
+    if (process.env.NODE_ENV === "development") {
+      context.save()
+      context.strokeStyle = "rgba(255,255,255,0.1)"
+      context.beginPath()
+      for (let x = 0; x < dimensions.width; x += 100) {
+        context.moveTo(x, 0)
+        context.lineTo(x, dimensions.height)
+      }
+      for (let y = 0; y < dimensions.height; y += 100) {
+        context.moveTo(0, y)
+        context.lineTo(dimensions.width, y)
+      }
+      context.stroke()
+      context.restore()
+    }
+
+    objects.forEach((obj) => {
+      obj.render(context)
+
+      if (process.env.NODE_ENV === "development") {
+        const bounds = obj.getBounds()
+        context.save()
+        context.strokeStyle = "rgba(255,0,0,0.5)"
+        context.translate(obj.transform.position.x, obj.transform.position.y)
+        context.rotate(obj.transform.rotation)
+        context.strokeRect(
+          bounds.left,
+          bounds.top,
+          bounds.right - bounds.left,
+          bounds.bottom - bounds.top
+        )
+        context.restore()
+      }
+    })
   }, [context, dimensions, objects])
 
   useAnimationFrame(renderCanvas, [context, dimensions, objects], true)
@@ -57,6 +77,12 @@ export function Canvas() {
       onTransformEnd: () => setObjects([...objects]),
     })
   }, [objects, renderCanvas])
+
+  const { handleDrop, handleGlobalPaste } = useCanvasImg({
+    canvas: canvasRef,
+    objects,
+    setObjects,
+  })
 
   useCanvasInteractions({
     canvas: canvasRef,
@@ -85,9 +111,7 @@ export function Canvas() {
           object.type,
           object as any
         )
-
         const action = actions.find((a) => a.id === actionId)
-
         if (action) {
           action.handler(object)
           setObjects([...objects])
@@ -96,7 +120,6 @@ export function Canvas() {
         const action = toolbarRegistry
           .getGlobalActions()
           .find((a) => a.id === actionId)
-
         if (action && action.global) {
           action.handler()
         }
@@ -104,6 +127,7 @@ export function Canvas() {
     },
     [objects]
   )
+
   return (
     <div className="fixed inset-0 overflow-hidden outline-none">
       <canvas
@@ -115,13 +139,6 @@ export function Canvas() {
       />
 
       <Toolbar selectedObject={selectedObject} onAction={handleToolbarAction} />
-
-      {/* <button
-        className="mt-4 px-4 py-2 bg-blue-500 text-white rounded absolute top-0"
-        onClick={addText}
-      >
-        Add Text
-      </button> */}
     </div>
   )
 }

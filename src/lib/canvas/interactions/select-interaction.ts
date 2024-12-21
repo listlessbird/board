@@ -8,12 +8,13 @@ import {
 
 export class SelectInteraction implements InteractionHandler {
   id: string = "select"
-  priority: number = 1
+  priority: number = 0
   isEnabled: boolean = true
 
   constructor(private selectionManager: SelectionManager) {}
 
   canHandle(obj: BaseObject): boolean {
+    console.log("[DEBUG] SelectInteraction canHandle:", obj.id)
     return true
   }
 
@@ -23,11 +24,17 @@ export class SelectInteraction implements InteractionHandler {
     context: MouseInteractionContext
   ): CanvasInteractionHandlerResult {
     const { position } = context
-
+    console.log("[DEBUG] SelectInteraction handleMouseDown", {
+      obj,
+      position,
+    })
     if (obj.containsPoint(position)) {
+      console.log("[DEBUG] SelectInteraction selecting object:", obj.id)
+
       this.selectionManager.select(obj)
       return { handled: true, stopPropagation: false }
     }
+    console.log("[DEBUG] SelectInteraction clearing selection")
 
     this.selectionManager.clearSelection()
     return { handled: true, stopPropagation: false }

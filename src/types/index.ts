@@ -178,3 +178,30 @@ export type ToolbarActionRegistry = {
     [K in keyof ObjectTypeMap]: ObjectToolbarAction[]
   }
 }
+
+export interface InteractionState {
+  selectedObject: BaseObject | null
+  isDragging: boolean
+  lastMousePosition: Position | null
+  activeControlPoint: ControlPointType
+  initialTransform: Transform | null
+}
+
+export interface CommandMeta {
+  timestamp: number
+  debug?: Record<string, unknown>
+}
+
+export interface InteractionCommand {
+  execute(): void
+  undo(): void
+  redo(): void
+  readonly type: string
+  readonly meta: CommandMeta
+  readonly targetId: string
+}
+
+export interface InteractionCommandProcessorOpts {
+  debug?: boolean
+  maxUndoStackSize?: number
+}

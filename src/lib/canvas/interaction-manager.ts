@@ -123,6 +123,13 @@ export class InteractionManager {
       const selectedObject = this.opts.selectionManager.getSelectedObjects()[0]
 
       if (selectedObject) {
+        this.logger.debug("Dragging object", {
+          position,
+          lastPosition: this.lastMousePosition,
+          objectId: selectedObject.id,
+          isDragging: this.isDragging,
+        })
+
         this.opts.transformManager.drag(selectedObject, position)
         this.opts.onUpdate()
       }

@@ -100,6 +100,14 @@ export class TransformManager {
     const dx = currentPos.x - this.lastMousePos!.x
     const dy = currentPos.y - this.lastMousePos!.y
 
+    console.debug("[TransformManager] Moving object:", {
+      dx,
+      dy,
+      objectId: object.id,
+      currentPos,
+      lastPos: this.lastMousePos,
+    })
+
     object.transform.position.x += dx
     object.transform.position.y += dy
   }

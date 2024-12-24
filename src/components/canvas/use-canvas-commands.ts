@@ -3,7 +3,7 @@ import { BaseObject } from "@/lib/canvas/objects/base"
 import { SelectionManager } from "@/lib/canvas/selection"
 import { TransformManager } from "@/lib/canvas/transform"
 import { Position } from "@/types"
-import { useCallback, useRef } from "react"
+import { useCallback, useEffect, useRef } from "react"
 
 interface UseCanvasCommandsOpts {
   canvas: React.RefObject<HTMLCanvasElement>
@@ -24,24 +24,32 @@ export function useCanvasCommands({
 }: UseCanvasCommandsOpts) {
   const interactionManager = useRef<InteractionManager | null>(null)
 
+  const objectsRef = useRef(objects)
+  const onUpdateRef = useRef(onUpdate)
+
+  useEffect(() => {
+    objectsRef.current = objects
+    onUpdateRef.current = onUpdate
+  }, [objects, onUpdate])
+
   const findObjectAtPoint = useCallback(
     (point: Position): BaseObject | null => {
-      for (let i = objects.length - 1; i >= 0; i--) {
-        const obj = objects[i]
+      for (let i = objectsRef.current.length - 1; i >= 0; i--) {
+        const obj = objectsRef.current[i]
         if (obj.containsPoint(point)) {
           return obj
         }
       }
       return null
     },
-    [objects]
+    []
   )
 
   const initManager = useCallback(() => {
     if (!canvas.current) return
 
     if (interactionManager.current) {
-      interactionManager.current.destroy()
+      return
     }
 
     interactionManager.current = new InteractionManager({
@@ -60,6 +68,15 @@ export function useCanvasCommands({
     debug,
     findObjectAtPoint,
   ])
+
+  useEffect(() => {
+    return () => {
+      if (interactionManager.current) {
+        interactionManager.current.destroy()
+        interactionManager.current = null
+      }
+    }
+  }, [])
 
   return {
     initManager,

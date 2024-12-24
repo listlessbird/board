@@ -27,6 +27,30 @@ export function Canvas() {
   const transformManager = useRef(new TransformManager())
   const isDebug = process.env.NODE_ENV === "development"
 
+  const objectsRef = useRef(objects)
+
+  const onUpdateRef = useRef(() => {
+    setObjects([...objectsRef.current])
+    renderCanvas()
+  })
+
+  const { initManager, undo, redo } = useCanvasCommands({
+    canvas: canvasRef,
+    objects,
+    selectionManager: selectionManager.current,
+    transformManager: transformManager.current,
+    onUpdate: onUpdateRef.current,
+    debug: isDebug,
+  })
+
+  useEffect(() => {
+    initManager()
+  }, [])
+
+  useEffect(() => {
+    objectsRef.current = objects
+  }, [objects])
+
   const { dimensions, context } = useCanvas({ canvasRef })
   const selectedObject = useCanvasSelection(selectionManager.current)
 
@@ -60,7 +84,7 @@ export function Canvas() {
     objects.forEach((obj) => {
       obj.render(context)
     })
-  }, [context, dimensions, objects, isDebug])
+  }, [context, dimensions, objects, isDebug, selectedObject?.id])
 
   useAnimationFrame(renderCanvas, [context, dimensions, objects], true)
 
@@ -76,22 +100,6 @@ export function Canvas() {
     objects,
     setObjects,
   })
-
-  const { initManager, undo, redo } = useCanvasCommands({
-    canvas: canvasRef,
-    objects,
-    selectionManager: selectionManager.current,
-    transformManager: transformManager.current,
-    onUpdate: () => {
-      setObjects([...objects])
-      renderCanvas()
-    },
-    debug: isDebug,
-  })
-
-  useEffect(() => {
-    initManager()
-  }, [initManager])
 
   useEffect(() => {
     registerTextActions()

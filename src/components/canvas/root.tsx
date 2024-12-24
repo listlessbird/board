@@ -18,12 +18,14 @@ import {
   registerGlobalImgActions,
   registerImageActions,
 } from "@/lib/canvas/toolbar/img-actions"
+import { useCanvasCommands } from "@/components/canvas/use-canvas-commands"
 
 export function Canvas() {
   const canvasRef = useRef<HTMLCanvasElement>(null!)
   const [objects, setObjects] = useState<BaseObject[]>([])
   const selectionManager = useRef(new SelectionManager())
   const transformManager = useRef(new TransformManager())
+  const isDebug = process.env.NODE_ENV === "development"
 
   const { dimensions, context } = useCanvas({ canvasRef })
   const selectedObject = useCanvasSelection(selectionManager.current)
@@ -32,10 +34,33 @@ export function Canvas() {
     if (!context) return
     context.clearRect(0, 0, dimensions.width, dimensions.height)
 
+    if (isDebug) {
+      context.save()
+      context.strokeStyle = "rgba(255,255,255,0.1)"
+      context.beginPath()
+
+      for (let x = 0; x < dimensions.width; x += 100) {
+        context.moveTo(x, 0)
+        context.lineTo(x, dimensions.height)
+      }
+      for (let y = 0; y < dimensions.height; y += 100) {
+        context.moveTo(0, y)
+        context.lineTo(dimensions.width, y)
+      }
+      context.stroke()
+
+      context.fillStyle = "rgba(255,255,255,0.5)"
+      context.font = "12px monospace"
+      context.fillText(`Objects: ${objects.length}`, 10, 20)
+      context.fillText(`Selected: ${selectedObject?.id ?? "none"}`, 10, 40)
+
+      context.restore()
+    }
+
     objects.forEach((obj) => {
       obj.render(context)
     })
-  }, [context, dimensions, objects])
+  }, [context, dimensions, objects, isDebug])
 
   useAnimationFrame(renderCanvas, [context, dimensions, objects], true)
 
@@ -51,6 +76,22 @@ export function Canvas() {
     objects,
     setObjects,
   })
+
+  const { initManager, undo, redo } = useCanvasCommands({
+    canvas: canvasRef,
+    objects,
+    selectionManager: selectionManager.current,
+    transformManager: transformManager.current,
+    onUpdate: () => {
+      setObjects([...objects])
+      renderCanvas()
+    },
+    debug: isDebug,
+  })
+
+  useEffect(() => {
+    initManager()
+  }, [initManager])
 
   useEffect(() => {
     registerTextActions()
@@ -98,6 +139,12 @@ export function Canvas() {
       />
 
       <Toolbar selectedObject={selectedObject} onAction={handleToolbarAction} />
+      {isDebug && (
+        <div className="fixed bottom-4 right-4 text-xs text-white/50 font-mono">
+          <div>Objects: {objects.length}</div>
+          <div>Selected: {selectedObject?.id ?? "none"}</div>
+        </div>
+      )}
     </div>
   )
 }

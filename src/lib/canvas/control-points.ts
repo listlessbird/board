@@ -14,6 +14,29 @@ export class ControlPointManager {
     this.style = { ...this.style, ...customStyle }
   }
 
+  /**
+   * Gets ordered control points matching ControlPointType enum order
+   * @param bounds Object bounds
+   * @returns Array of control point positions in enum order
+   */
+  getControlPoints(bounds: Bounds): Position[] {
+    const { left, right, top, bottom } = bounds
+    const centerX = (left + right) / 2
+    const centerY = (top + bottom) / 2
+
+    // Order MUST match ControlPointType enum
+    return [
+      { x: left, y: top }, // TopLeft = 0
+      { x: centerX, y: top }, // TopCenter = 1
+      { x: right, y: top }, // TopRight = 2
+      { x: right, y: centerY }, // MiddleRight = 3
+      { x: right, y: bottom }, // BottomRight = 4
+      { x: centerX, y: bottom }, // BottomCenter = 5
+      { x: left, y: bottom }, // BottomLeft = 6
+      { x: left, y: centerY }, // MiddleLeft = 7
+    ]
+  }
+
   drawControlPoints(
     ctx: CanvasRenderingContext2D,
     bounds: Bounds,
@@ -28,16 +51,11 @@ export class ControlPointManager {
     ctx.strokeStyle = this.style.strokeStyle
     ctx.lineWidth = this.style.lineWidth / absScale
 
-    if (isFlipped) {
-      points.reverse()
-      ctx.scale(-1, 1)
-    }
-
     const size = this.style.size / absScale
 
-    points.forEach((p) => {
+    points.forEach((p, index) => {
       ctx.beginPath()
-      ctx.arc(p.x, p.y, size / 2, 0, 2 * Math.PI)
+      ctx.arc(isFlipped ? -p.x : p.x, p.y, size / 2, 0, 2 * Math.PI)
       ctx.fill()
       ctx.stroke()
     })
@@ -51,45 +69,57 @@ export class ControlPointManager {
     scale: number
   ): void {
     const absScale = Math.abs(scale)
+    const size = this.style.size / absScale
+    const offset = this.rotationHandleOffset / absScale
 
     ctx.save()
     ctx.strokeStyle = this.style.strokeStyle
     ctx.fillStyle = this.style.fillStyle
     ctx.lineWidth = this.style.lineWidth / absScale
 
-    const centerY = bounds.top
-
+    // Draw connecting line
     ctx.beginPath()
-    ctx.moveTo(0, centerY)
-    ctx.lineTo(0, centerY - this.rotationHandleOffset / absScale)
+    ctx.moveTo(0, bounds.top)
+    ctx.lineTo(0, bounds.top - offset)
     ctx.stroke()
 
+    // Draw handle circle
+    ctx.beginPath()
+    ctx.arc(0, bounds.top - offset, size / 2, 0, 2 * Math.PI)
+    ctx.fill()
+    ctx.stroke()
+
+    // Optional: Draw rotation indicator lines for better UX
+    const indicatorSize = size / 3
     ctx.beginPath()
     ctx.arc(
       0,
-      centerY - this.rotationHandleOffset / absScale,
-      this.style.size / 2 / absScale,
-      0,
-      2 * Math.PI
+      bounds.top - offset,
+      indicatorSize,
+      -Math.PI * 0.75, // Start at 10:30 position
+      Math.PI * 0.75, // End at 1:30 position
+      false
     )
-    ctx.fill()
+    ctx.stroke()
+
+    // Add small arrow at the end
+    const arrowSize = size / 4
+    ctx.beginPath()
+    ctx.moveTo(arrowSize, bounds.top - offset)
+    ctx.lineTo(0, bounds.top - offset - arrowSize)
+    ctx.lineTo(-arrowSize, bounds.top - offset)
     ctx.stroke()
 
     ctx.restore()
   }
 
-  getControlPoints(bounds: Bounds): Position[] {
-    return [
-      { x: bounds.left, y: bounds.top }, // TopLeft
-      { x: (bounds.left + bounds.right) / 2, y: bounds.top }, // TopCenter
-      { x: bounds.right, y: bounds.top }, // TopRight
-      { x: bounds.right, y: (bounds.top + bounds.bottom) / 2 }, // MiddleRight
-      { x: bounds.right, y: bounds.bottom }, // BottomRight
-      { x: (bounds.left + bounds.right) / 2, y: bounds.bottom }, // BottomCenter
-      { x: bounds.left, y: bounds.bottom }, // BottomLeft
-      { x: bounds.left, y: (bounds.top + bounds.bottom) / 2 }, // MiddleLeft
-    ]
-  }
+  /**
+   * Checks if a point is near a control point
+   * @param point Point to test
+   * @param bounds Object bounds
+   * @param scale Current scale
+   * @param transform Transform function to convert global to local coords
+   */
   getControlPointAtPosition(
     point: Position,
     bounds: Bounds,
@@ -97,82 +127,67 @@ export class ControlPointManager {
     transform: (point: Position) => Position
   ): ControlPointType {
     const localPoint = transform(point)
+    const absScale = Math.abs(scale)
 
-    console.debug("[ControlPointManager] Control point check:", {
-      point,
-      localPoint,
-      scale,
-      bounds,
-      threshold: (this.style.size + 4) / Math.abs(scale),
-    })
-
-    // rotation handle
+    // Check rotation handle first
     const rotationPoint = {
       x: 0,
-      y: bounds.top - this.rotationHandleOffset / Math.abs(scale),
+      y: bounds.top - this.rotationHandleOffset / absScale,
     }
 
     if (this.isPointNearPosition(localPoint, rotationPoint, scale)) {
       return ControlPointType.Rotation
     }
 
+    // Get control points in enum order
     const controlPoints = this.getControlPoints(bounds)
 
-    const padding = 2
-    const threshold = ((this.style.size + 8) * padding) / Math.abs(scale)
+    // Larger hit area for easier selection
+    const threshold = (this.style.size * 2) / absScale
 
-    for (let i = 0; i < controlPoints.length; i++) {
-      const cp = controlPoints[i]
-
+    // Debug info for hit testing
+    const hitTestResults = controlPoints.map((cp, index) => {
       const distance = Math.sqrt(
         Math.pow(localPoint.x - cp.x, 2) + Math.pow(localPoint.y - cp.y, 2)
       )
+      return { index, distance, threshold, hit: distance < threshold }
+    })
 
-      console.debug("[ControlPointManager] Testing control point:", {
-        index: i,
-        position: cp,
-        distance,
-        threshold,
-        hit: distance < threshold,
-      })
+    console.debug("[ControlPointManager] Hit test results:", {
+      localPoint,
+      scale: absScale,
+      threshold,
+      results: hitTestResults,
+    })
 
-      if (distance < threshold) {
-        console.debug("[ControlPointManager] Hit control point:", {
-          index: i,
-          position: cp,
-          distance,
-          threshold,
-        })
-        return i
-      }
-    }
+    // Find closest point within threshold
+    const hit = hitTestResults
+      .filter((r) => r.hit)
+      .sort((a, b) => a.distance - b.distance)[0]
 
-    return ControlPointType.None
+    return hit ? hit.index : ControlPointType.None
   }
 
-  //   hitbox
   private isPointNearPosition(
     point: Position,
     position: Position,
     scale: number
   ): boolean {
-    const threshold = (this.style.size + 8) / Math.abs(scale)
-
+    const threshold = (this.style.size * 2) / Math.abs(scale)
     const distance = Math.sqrt(
       Math.pow(point.x - position.x, 2) + Math.pow(point.y - position.y, 2)
     )
-
     return distance < threshold
   }
 
   getCursorStyle(controlPoint: ControlPointType): string {
     switch (controlPoint) {
       case ControlPointType.TopLeft:
-      case ControlPointType.BottomLeft:
-        return "nw-resize"
+      case ControlPointType.BottomRight:
+        return "nwse-resize"
       case ControlPointType.TopRight:
       case ControlPointType.BottomLeft:
-        return "ne-resize"
+        return "nesw-resize"
       case ControlPointType.TopCenter:
       case ControlPointType.BottomCenter:
         return "ns-resize"

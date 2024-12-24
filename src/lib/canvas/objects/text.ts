@@ -174,6 +174,13 @@ export class TextObject extends BaseObject implements Transformable, Editable {
     const local = this.transformPointToLocal(point)
     const bounds = this.getBounds()
 
+    if (this.selected) {
+      const controlPoint = this.getControlPointAtPosition(point)
+      if (controlPoint !== ControlPointType.None) {
+        return true
+      }
+    }
+
     return (
       local.x >= bounds.left &&
       local.x <= bounds.right &&

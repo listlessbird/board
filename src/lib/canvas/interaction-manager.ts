@@ -80,10 +80,10 @@ export class InteractionManager {
     })
 
     if (hitObject) {
+      const isSelected = hitObject.selected
       const controlPoint = hitObject.getControlPointAtPosition(position)
-      this.activeControlPoint = controlPoint
 
-      if (controlPoint === ControlPointType.None) {
+      if (!isSelected) {
         const command = new SelectCommand(
           hitObject,
           this.opts.selectionManager,
@@ -92,7 +92,7 @@ export class InteractionManager {
         this.commandProcessor.execute(command)
       }
 
-      if (hitObject.selected) {
+      if (isSelected || controlPoint === ControlPointType.None) {
         this.logger.debug("Starting transform interaction", {
           controlPoint,
           objectId: hitObject.id,
@@ -101,6 +101,7 @@ export class InteractionManager {
 
         this.isDragging = true
         this.lastMousePosition = position
+        this.activeControlPoint = controlPoint
         this.opts.transformManager.startDrag(position, controlPoint, hitObject)
 
         this.currentTransform = new TransformCommand(
@@ -120,7 +121,6 @@ export class InteractionManager {
 
     this.opts.onUpdate()
   }
-
   private handleMouseMove(e: MouseEvent): void {
     const position = this.getMousePosition(e)
 

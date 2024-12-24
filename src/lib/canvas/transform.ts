@@ -52,6 +52,13 @@ export class TransformManager {
       return
     }
 
+    console.debug("[TransformManager] Dragging:", {
+      controlPoint: this.activeControlPoint,
+      isScaleHandle: this.isScaleHandle(this.activeControlPoint),
+      currentPos,
+      lastPos: this.lastMousePos,
+    })
+
     switch (this.activeControlPoint) {
       case ControlPointType.None:
         this.handleMove(object, currentPos)
@@ -61,6 +68,7 @@ export class TransformManager {
         break
       case ControlPointType.MiddleLeft:
       case ControlPointType.MiddleRight:
+        this.handleScale(object, currentPos)
         this.handleFlip(object, currentPos)
         break
       default:
@@ -162,14 +170,26 @@ export class TransformManager {
   }
 
   private handleScale(object: BaseObject, currentPos: Position): void {
-    if (!this.initialDistance) return
+    if (!this.initialDistance) {
+      console.warn("[TransformManager] No initial distance for scale")
+      return
+    }
 
     const center = object.transform.position
     const currentDistance = this.getDistance(center, currentPos)
-    const factor = currentDistance / this.initialDistance
 
-    object.transform.scale = this.initialTransform!.scale * factor
-    object.transform.scale = Math.max(0.1, Math.min(5, object.transform.scale))
+    console.debug("[TransformManager] Scaling:", {
+      controlPoint: this.activeControlPoint,
+      initialDistance: this.initialDistance,
+      currentDistance,
+      scaleFactor: currentDistance / this.initialDistance,
+    })
+
+    const factor = currentDistance / this.initialDistance
+    let newScale = this.initialTransform!.scale * factor
+    newScale = Math.max(0.1, Math.min(5, newScale))
+
+    object.transform.scale = newScale
   }
 
   private getDistance(p1: Position, p2: Position): number {
@@ -183,10 +203,16 @@ export class TransformManager {
   }
 
   private isScaleHandle(controlPoint: ControlPointType): boolean {
-    return (
-      controlPoint >= ControlPointType.TopLeft &&
-      controlPoint <= ControlPointType.MiddleLeft
-    )
+    return [
+      ControlPointType.TopLeft,
+      ControlPointType.TopCenter,
+      ControlPointType.TopRight,
+      ControlPointType.MiddleRight,
+      ControlPointType.BottomRight,
+      ControlPointType.BottomCenter,
+      ControlPointType.BottomLeft,
+      ControlPointType.MiddleLeft,
+    ].includes(controlPoint)
   }
 
   getCursorStyle(controlPoint: ControlPointType): string {

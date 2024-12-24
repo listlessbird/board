@@ -33,14 +33,11 @@ export class ControlPointManager {
       ctx.scale(-1, 1)
     }
 
+    const size = this.style.size / absScale
+
     points.forEach((p) => {
       ctx.beginPath()
-      ctx.rect(
-        p.x - this.style.size / 2 / absScale,
-        p.y - this.style.size / 2 / absScale,
-        this.style.size / absScale,
-        this.style.size / absScale
-      )
+      ctx.arc(p.x, p.y, size / 2, 0, 2 * Math.PI)
       ctx.fill()
       ctx.stroke()
     })
@@ -101,11 +98,12 @@ export class ControlPointManager {
   ): ControlPointType {
     const localPoint = transform(point)
 
-    console.debug("[ControlPointManager] Checking point:", {
-      original: point,
-      transformed: localPoint,
+    console.debug("[ControlPointManager] Control point check:", {
+      point,
+      localPoint,
       scale,
       bounds,
+      threshold: (this.style.size + 4) / Math.abs(scale),
     })
 
     // rotation handle
@@ -119,11 +117,31 @@ export class ControlPointManager {
     }
 
     const controlPoints = this.getControlPoints(bounds)
+
+    const padding = 2
+    const threshold = ((this.style.size + 8) * padding) / Math.abs(scale)
+
     for (let i = 0; i < controlPoints.length; i++) {
-      if (this.isPointNearPosition(localPoint, controlPoints[i], scale)) {
+      const cp = controlPoints[i]
+
+      const distance = Math.sqrt(
+        Math.pow(localPoint.x - cp.x, 2) + Math.pow(localPoint.y - cp.y, 2)
+      )
+
+      console.debug("[ControlPointManager] Testing control point:", {
+        index: i,
+        position: cp,
+        distance,
+        threshold,
+        hit: distance < threshold,
+      })
+
+      if (distance < threshold) {
         console.debug("[ControlPointManager] Hit control point:", {
           index: i,
-          position: controlPoints[i],
+          position: cp,
+          distance,
+          threshold,
         })
         return i
       }
@@ -138,12 +156,13 @@ export class ControlPointManager {
     position: Position,
     scale: number
   ): boolean {
-    const threshold = (this.style.size + 4) / Math.abs(scale)
+    const threshold = (this.style.size + 8) / Math.abs(scale)
 
-    return (
-      Math.abs(point.x - position.x) < threshold &&
-      Math.abs(point.y - position.y) < threshold
+    const distance = Math.sqrt(
+      Math.pow(point.x - position.x, 2) + Math.pow(point.y - position.y, 2)
     )
+
+    return distance < threshold
   }
 
   getCursorStyle(controlPoint: ControlPointType): string {

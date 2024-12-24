@@ -76,24 +76,29 @@ export class InteractionManager {
     this.logger.debug("Mouse Down Event", {
       position,
       hitObject: hitObject?.id,
+      selectedObjects: this.opts.selectionManager.getSelectedObjects(),
     })
 
     if (hitObject) {
       const controlPoint = hitObject.getControlPointAtPosition(position)
       this.activeControlPoint = controlPoint
 
-      //   selection
       if (controlPoint === ControlPointType.None) {
         const command = new SelectCommand(
           hitObject,
           this.opts.selectionManager,
           this.opts.debug
         )
-
         this.commandProcessor.execute(command)
       }
 
       if (hitObject.selected) {
+        this.logger.debug("Starting transform interaction", {
+          controlPoint,
+          objectId: hitObject.id,
+          isSelected: hitObject.selected,
+        })
+
         this.isDragging = true
         this.lastMousePosition = position
         this.opts.transformManager.startDrag(position, controlPoint, hitObject)
@@ -103,16 +108,16 @@ export class InteractionManager {
           this.opts.transformManager,
           this.opts.debug
         )
-      } else {
-        const command = new SelectCommand(
-          null,
-          this.opts.selectionManager,
-          this.opts.debug
-        )
-
-        this.commandProcessor.execute(command)
       }
+    } else {
+      const command = new SelectCommand(
+        null,
+        this.opts.selectionManager,
+        this.opts.debug
+      )
+      this.commandProcessor.execute(command)
     }
+
     this.opts.onUpdate()
   }
 
@@ -127,6 +132,7 @@ export class InteractionManager {
           position,
           lastPosition: this.lastMousePosition,
           objectId: selectedObject.id,
+          controlPoint: this.activeControlPoint,
           isDragging: this.isDragging,
         })
 

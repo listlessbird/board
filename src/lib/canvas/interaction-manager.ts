@@ -11,6 +11,7 @@ import { ControlPointType, Position } from "@/types"
 
 interface InteractionManagerOpts {
   canvas: HTMLCanvasElement
+  getObjects: () => BaseObject[]
   selectionManager: SelectionManager
   transformManager: TransformManager
   getObjectAtPoint: (point: Position) => BaseObject | null
@@ -23,7 +24,7 @@ interface InteractionManagerOpts {
  */
 
 export class InteractionManager {
-  private commandProcessor: CanvasInteractionCommandProcessor
+  commandProcessor: CanvasInteractionCommandProcessor
   private logger = createLogger("InteractionManager")
   private currentTransform: TransformCommand | null = null
   private isDragging: boolean = false

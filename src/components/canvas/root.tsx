@@ -19,33 +19,30 @@ import {
   registerImageActions,
 } from "@/lib/canvas/toolbar/img-actions"
 import { useCanvasCommands } from "@/components/canvas/use-canvas-commands"
+import { KeyboardShortcuts } from "@/lib/constants"
 
 export function Canvas() {
   const canvasRef = useRef<HTMLCanvasElement>(null!)
   const [objects, setObjects] = useState<BaseObject[]>([])
   const selectionManager = useRef(new SelectionManager())
   const transformManager = useRef(new TransformManager())
-  const isDebug = process.env.NODE_ENV === "development"
+  const [isDebug] = useState(() => process.env.NODE_ENV === "development")
 
   const objectsRef = useRef(objects)
 
-  const onUpdateRef = useRef(() => {
-    setObjects([...objectsRef.current])
-    renderCanvas()
-  })
+  const handleSetObjects = useCallback(
+    (newObjects: BaseObject[]) => {
+      console.log("SETTING OBJECTS", {
+        current: objects.length,
+        newObjects: newObjects.length,
+        currentIds: objects.map((o) => o.id),
+        newIds: newObjects.map((o) => o.id),
+      })
 
-  const { initManager, undo, redo } = useCanvasCommands({
-    canvas: canvasRef,
-    objects,
-    selectionManager: selectionManager.current,
-    transformManager: transformManager.current,
-    onUpdate: onUpdateRef.current,
-    debug: isDebug,
-  })
-
-  useEffect(() => {
-    initManager()
-  }, [])
+      setObjects([...newObjects])
+    },
+    [objects]
+  )
 
   useEffect(() => {
     objectsRef.current = objects
@@ -59,32 +56,38 @@ export function Canvas() {
     context.clearRect(0, 0, dimensions.width, dimensions.height)
 
     if (isDebug) {
-      context.save()
-      context.strokeStyle = "rgba(255,255,255,0.1)"
-      context.beginPath()
-
-      for (let x = 0; x < dimensions.width; x += 100) {
-        context.moveTo(x, 0)
-        context.lineTo(x, dimensions.height)
+      const ids = objects.map((o) => o.id)
+      const dupeIds = ids.filter((id, index) => ids.indexOf(id) !== index)
+      if (dupeIds.length > 0) {
+        console.warn("Duplicate objects found:", {
+          duplicateIds: dupeIds,
+          allIds: ids,
+          objects: objects,
+        })
       }
-      for (let y = 0; y < dimensions.height; y += 100) {
-        context.moveTo(0, y)
-        context.lineTo(dimensions.width, y)
-      }
-      context.stroke()
-
-      context.fillStyle = "rgba(255,255,255,0.5)"
-      context.font = "12px monospace"
-      context.fillText(`Objects: ${objects.length}`, 10, 20)
-      context.fillText(`Selected: ${selectedObject?.id ?? "none"}`, 10, 40)
-
-      context.restore()
     }
 
     objects.forEach((obj) => {
       obj.render(context)
     })
-  }, [context, dimensions, objects, isDebug, selectedObject?.id])
+  }, [context, dimensions, objects, isDebug])
+  const { initManager, undo, redo, deleteObject, setObjectsCallback } =
+    useCanvasCommands({
+      canvas: canvasRef,
+      objects,
+      selectionManager: selectionManager.current,
+      transformManager: transformManager.current,
+      onUpdate: () => {
+        console.log("UPDATE TRIGGERED, onUpdate in useCanvasCommands")
+        renderCanvas()
+      },
+      debug: isDebug,
+    })
+
+  useEffect(() => {
+    setObjectsCallback(handleSetObjects)
+    initManager()
+  }, [handleSetObjects, initManager, setObjectsCallback])
 
   useAnimationFrame(renderCanvas, [context, dimensions, objects], true)
 
@@ -135,6 +138,40 @@ export function Canvas() {
     },
     [objects]
   )
+
+  useEffect(() => {
+    const handleKeyboard = (e: KeyboardEvent) => {
+      if (
+        e.target instanceof HTMLInputElement ||
+        e.target instanceof HTMLTextAreaElement
+      ) {
+        return
+      }
+
+      if (e.key === KeyboardShortcuts.UNDO && (e.ctrlKey || e.metaKey)) {
+        e.preventDefault()
+        undo()
+        return
+      }
+
+      if (e.key === KeyboardShortcuts.REDO && (e.ctrlKey || e.metaKey)) {
+        e.preventDefault()
+        redo()
+        return
+      }
+
+      if (e.key === KeyboardShortcuts.DELETE && selectedObject) {
+        console.log("DELETE COMMAND")
+        e.preventDefault()
+        deleteObject(selectedObject)
+        selectionManager.current.clearSelection()
+        return
+      }
+    }
+
+    window.addEventListener("keydown", handleKeyboard)
+    return () => window.removeEventListener("keydown", handleKeyboard)
+  }, [undo, redo, objects, selectedObject, deleteObject])
 
   return (
     <div className="fixed inset-0 overflow-hidden outline-none">

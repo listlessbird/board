@@ -1,8 +1,9 @@
+import { DeleteCommand } from "@/lib/canvas/commands/delete-object-command"
 import { InteractionManager } from "@/lib/canvas/interaction-manager"
 import { BaseObject } from "@/lib/canvas/objects/base"
 import { SelectionManager } from "@/lib/canvas/selection"
 import { TransformManager } from "@/lib/canvas/transform"
-import { Position } from "@/types"
+import { InteractionCommand, Position } from "@/types"
 import { useCallback, useEffect, useRef } from "react"
 
 interface UseCanvasCommandsOpts {
@@ -26,6 +27,30 @@ export function useCanvasCommands({
 
   const objectsRef = useRef(objects)
   const onUpdateRef = useRef(onUpdate)
+
+  const setObjectsCallback = useRef<((objects: BaseObject[]) => void) | null>(
+    null
+  )
+
+  const deleteObjectHandler = useCallback(
+    (object: BaseObject) => {
+      if (!interactionManager.current || !setObjectsCallback.current) return
+
+      const command = new DeleteCommand(
+        object,
+        () => objects,
+        (newObjects) => {
+          setObjectsCallback.current?.(newObjects)
+        },
+        selectionManager,
+        onUpdate,
+        debug
+      )
+
+      interactionManager.current.commandProcessor.execute(command)
+    },
+    [objects, selectionManager, onUpdate, debug]
+  )
 
   useEffect(() => {
     objectsRef.current = objects
@@ -54,6 +79,7 @@ export function useCanvasCommands({
 
     interactionManager.current = new InteractionManager({
       canvas: canvas.current,
+      getObjects: () => objectsRef.current,
       selectionManager,
       transformManager,
       getObjectAtPoint: findObjectAtPoint,
@@ -67,6 +93,7 @@ export function useCanvasCommands({
     onUpdate,
     debug,
     findObjectAtPoint,
+    objects,
   ])
 
   useEffect(() => {
@@ -82,5 +109,9 @@ export function useCanvasCommands({
     initManager,
     undo: () => interactionManager.current?.undo(),
     redo: () => interactionManager.current?.redo(),
+    deleteObject: deleteObjectHandler,
+    setObjectsCallback: (cb: (objects: BaseObject[]) => void) => {
+      setObjectsCallback.current = cb
+    },
   }
 }

@@ -26,6 +26,8 @@ class ToolbarRegistry {
     if (!ToolbarRegistry.instance) {
       ToolbarRegistry.instance = new ToolbarRegistry()
     }
+    console.log("GETTING TOOLBAR INSTANCE")
+    console.log("toolbar", ToolbarRegistry.instance)
     return ToolbarRegistry.instance
   }
 

@@ -2,12 +2,13 @@ import { CanvasInteractionCommandProcessor } from "@/lib/canvas/commands/process
 import { SelectCommand } from "@/lib/canvas/commands/select-command"
 import { TextEditCommand } from "@/lib/canvas/commands/text-edit-command"
 import { TransformCommand } from "@/lib/canvas/commands/transform-command"
+import { CoordinateSystem } from "@/lib/canvas/core/coordinate-system"
 import { BaseObject } from "@/lib/canvas/objects/base"
 import { TextObject } from "@/lib/canvas/objects/text"
 import { SelectionManager } from "@/lib/canvas/selection"
 import { TransformManager } from "@/lib/canvas/transform"
 import { createLogger } from "@/lib/utils"
-import { ControlPointType, Position } from "@/types"
+import { Camera, ControlPointType, Position } from "@/types"
 
 interface InteractionManagerOpts {
   canvas: HTMLCanvasElement
@@ -16,6 +17,7 @@ interface InteractionManagerOpts {
   transformManager: TransformManager
   getObjectAtPoint: (point: Position) => BaseObject | null
   onUpdate: () => void
+  camera: Camera
   debug?: boolean
 }
 
@@ -30,6 +32,8 @@ export class InteractionManager {
   private isDragging: boolean = false
   private lastMousePosition: Position | null = null
   private activeControlPoint: ControlPointType = ControlPointType.None
+  private coordinateSystem: CoordinateSystem
+  private camera: Camera
 
   private abortController: AbortController
   constructor(private opts: InteractionManagerOpts) {
@@ -37,6 +41,10 @@ export class InteractionManager {
       debug: opts.debug,
       maxUndoStackSize: 100,
     })
+
+    this.camera = opts.camera
+    this.coordinateSystem = new CoordinateSystem()
+
     this.abortController = new AbortController()
 
     this.handleMouseDown = this.handleMouseDown.bind(this)
@@ -71,18 +79,24 @@ export class InteractionManager {
   }
 
   private handleMouseDown(e: MouseEvent): void {
-    const position = this.getMousePosition(e)
-    const hitObject = this.opts.getObjectAtPoint(position)
+    const screenPosition = this.getMousePosition(e)
+    const worldPosition = this.coordinateSystem.screenToWorld(
+      screenPosition,
+      this.camera
+    )
+
+    const hitObject = this.opts.getObjectAtPoint(worldPosition)
 
     this.logger.debug("Mouse Down Event", {
-      position,
+      screenPosition,
+      worldPosition,
       hitObject: hitObject?.id,
       selectedObjects: this.opts.selectionManager.getSelectedObjects(),
     })
 
     if (hitObject) {
       const isSelected = hitObject.selected
-      const controlPoint = hitObject.getControlPointAtPosition(position)
+      const controlPoint = hitObject.getControlPointAtPosition(worldPosition)
 
       if (!isSelected) {
         const command = new SelectCommand(
@@ -101,9 +115,13 @@ export class InteractionManager {
         })
 
         this.isDragging = true
-        this.lastMousePosition = position
+        this.lastMousePosition = worldPosition
         this.activeControlPoint = controlPoint
-        this.opts.transformManager.startDrag(position, controlPoint, hitObject)
+        this.opts.transformManager.startDrag(
+          worldPosition,
+          controlPoint,
+          hitObject
+        )
 
         this.currentTransform = new TransformCommand(
           hitObject,
@@ -123,26 +141,31 @@ export class InteractionManager {
     this.opts.onUpdate()
   }
   private handleMouseMove(e: MouseEvent): void {
-    const position = this.getMousePosition(e)
+    const screenPosition = this.getMousePosition(e)
+    const worldPosition = this.coordinateSystem.screenToWorld(
+      screenPosition,
+      this.camera
+    )
 
     if (this.isDragging && this.lastMousePosition) {
       const selectedObject = this.opts.selectionManager.getSelectedObjects()[0]
 
       if (selectedObject) {
         this.logger.debug("Dragging object", {
-          position,
+          screenPosition,
+          worldPosition,
           lastPosition: this.lastMousePosition,
           objectId: selectedObject.id,
           controlPoint: this.activeControlPoint,
           isDragging: this.isDragging,
         })
 
-        this.opts.transformManager.drag(selectedObject, position)
+        this.opts.transformManager.drag(selectedObject, worldPosition)
         this.opts.onUpdate()
       }
     }
 
-    this.lastMousePosition = position
+    this.lastMousePosition = worldPosition
   }
 
   private handleMouseUp(e: MouseEvent): void {
@@ -160,9 +183,13 @@ export class InteractionManager {
   }
 
   private handleDoubleClick(e: MouseEvent): void {
-    const position = this.getMousePosition(e)
+    const screenPosition = this.getMousePosition(e)
+    const worldPosition = this.coordinateSystem.screenToWorld(
+      screenPosition,
+      this.camera
+    )
 
-    const hitObject = this.opts.getObjectAtPoint(position)
+    const hitObject = this.opts.getObjectAtPoint(worldPosition)
 
     if (hitObject instanceof TextObject) {
       hitObject.startEditing()

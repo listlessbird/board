@@ -50,6 +50,19 @@ export interface ViewPortBounds {
   height: number
 }
 
+export type ViewPortManagerOptions = {
+  cullingMargin?: number
+  debug?: boolean
+}
+
+export interface GridOptions {
+  baseGridSize?: number
+  primaryInterval?: number
+  secondaryInterval?: number
+  primaryColor?: string
+  secondaryColor?: string
+  axisColor?: string
+}
 export type CanvasEvents = {
   // retarded editor changes render string to normal property
   "render:": () => void

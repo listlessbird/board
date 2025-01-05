@@ -12,20 +12,23 @@ export function Toolbar<T extends BaseObject>({
   onAction,
   selectedObject,
 }: ToolbarProps<T>) {
-  const globalActions = useMemo(() => toolbarRegistry.getGlobalActions(), [])
+  // Use useMemo instead of useState to get fresh actions
+  const globalActions = useMemo(() => {
+    console.log("Getting global actions")
+    return toolbarRegistry.getGlobalActions()
+  }, [])
 
-  const objectActions = useMemo(
-    () =>
-      selectedObject
-        ? toolbarRegistry.getObjectActions(
-            selectedObject.type,
-            selectedObject as any
-          )
-        : [],
-    [selectedObject]
-  )
+  const objectActions = useMemo(() => {
+    if (!selectedObject) return []
+    return toolbarRegistry.getObjectActions(
+      selectedObject.type,
+      selectedObject as any
+    )
+  }, [selectedObject])
 
-  const groups = useMemo(() => toolbarRegistry.getGroups(), [])
+  const groups = useMemo(() => {
+    return toolbarRegistry.getGroups()
+  }, [])
 
   const renderActionButton = (
     a: GlobalToolbarAction | ObjectToolbarAction<T>,
@@ -41,6 +44,12 @@ export function Toolbar<T extends BaseObject>({
     </button>
   )
 
+  console.log("Rendering toolbar with actions:", {
+    globalActions,
+    objectActions,
+    groups,
+  })
+
   return (
     <div className="fixed top-4 left-1/2 -translate-x-1/2 bg-slate-800 rounded-lg shadow-lg p-2">
       <div className="flex gap-2">
@@ -54,19 +63,15 @@ export function Toolbar<T extends BaseObject>({
         )}
 
         {/* object specific actions */}
-
         {objectActions.length > 0 &&
           groups.map((g) => {
             const groupActions = objectActions.filter((a) => a.group === g.id)
-
             if (groupActions.length === 0) return null
-
             return (
               <div key={g.id} className="flex gap-2">
                 {groupActions.map((a) =>
                   renderActionButton(a, selectedObject as any)
                 )}
-
                 {g.id !== groups[groups.length - 1].id && (
                   <div className="w-px h-auto bg-slate-600" />
                 )}

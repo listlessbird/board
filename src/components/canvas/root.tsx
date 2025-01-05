@@ -1,122 +1,102 @@
 "use client"
-
-import { useCanvas } from "@/components/canvas/use-canvas"
-import { useAnimationFrame } from "@/components/canvas/use-animation-frame"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { BaseObject } from "@/lib/canvas/objects/base"
 import { SelectionManager } from "@/lib/canvas/selection"
 import { TransformManager } from "@/lib/canvas/transform"
-import { useCallback, useEffect, useRef, useState } from "react"
+import { useInfiniteCanvas } from "@/components/canvas/use-infinite-canvas"
+import { useCanvasSelection } from "@/components/canvas/use-canvas-selection"
+import { useCanvasCommands } from "@/components/canvas/use-canvas-commands"
+import { useCanvasImg } from "@/components/canvas/use-canvas-img"
 import {
   registerTextActions,
   registerTextGlobalActions,
 } from "@/lib/canvas/toolbar/text-actions"
-import { toolbarRegistry } from "@/lib/canvas/toolbar/toolbar-registry"
-import { Toolbar } from "@/components/canvas/toolbar"
-import { useCanvasSelection } from "@/components/canvas/use-canvas-selection"
-import { useCanvasImg } from "@/components/canvas/use-canvas-img"
 import {
   registerGlobalImgActions,
   registerImageActions,
 } from "@/lib/canvas/toolbar/img-actions"
-import { useCanvasCommands } from "@/components/canvas/use-canvas-commands"
+import { toolbarRegistry } from "@/lib/canvas/toolbar/toolbar-registry"
+import { Toolbar } from "@/components/canvas/toolbar"
 import { KeyboardShortcuts } from "@/lib/constants"
 
 export function Canvas() {
-  const canvasRef = useRef<HTMLCanvasElement>(null!)
-  const [objects, setObjects] = useState<BaseObject[]>([])
-  const selectionManager = useRef(new SelectionManager())
-  const transformManager = useRef(new TransformManager())
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
+  const selectionManagerRef = useRef<SelectionManager>(new SelectionManager())
+  const transformManagerRef = useRef<TransformManager>(new TransformManager())
+
   const [isDebug] = useState(() => process.env.NODE_ENV === "development")
+  const [objects, setObjects] = useState<BaseObject[]>([])
+  const [actionsReady, setActionsReady] = useState(false)
 
-  const objectsRef = useRef(objects)
-
-  const handleSetObjects = useCallback(
-    (newObjects: BaseObject[]) => {
-      console.log("SETTING OBJECTS", {
-        current: objects.length,
-        newObjects: newObjects.length,
-        currentIds: objects.map((o) => o.id),
-        newIds: newObjects.map((o) => o.id),
-      })
-
-      setObjects([...newObjects])
-    },
-    [objects]
-  )
-
-  useEffect(() => {
-    objectsRef.current = objects
-  }, [objects])
-
-  const { dimensions, context } = useCanvas({ canvasRef })
-  const selectedObject = useCanvasSelection(selectionManager.current)
-
-  const renderCanvas = useCallback(() => {
-    if (!context) return
-    context.clearRect(0, 0, dimensions.width, dimensions.height)
-
-    if (isDebug) {
-      const ids = objects.map((o) => o.id)
-      const dupeIds = ids.filter((id, index) => ids.indexOf(id) !== index)
-      if (dupeIds.length > 0) {
-        console.warn("Duplicate objects found:", {
-          duplicateIds: dupeIds,
-          allIds: ids,
-          objects: objects,
-        })
-      }
-    }
-
-    objects.forEach((obj) => {
-      obj.render(context)
-    })
-  }, [context, dimensions, objects, isDebug])
-  const { initManager, undo, redo, deleteObject, setObjectsCallback } =
-    useCanvasCommands({
-      canvas: canvasRef,
-      objects,
-      selectionManager: selectionManager.current,
-      transformManager: transformManager.current,
-      onUpdate: () => {
-        console.log("UPDATE TRIGGERED, onUpdate in useCanvasCommands")
-        renderCanvas()
-      },
-      debug: isDebug,
-    })
-
-  useEffect(() => {
-    setObjectsCallback(handleSetObjects)
-    initManager()
-  }, [handleSetObjects, initManager, setObjectsCallback])
-
-  useAnimationFrame(renderCanvas, [context, dimensions, objects], true)
-
-  useEffect(() => {
-    transformManager.current.setCallbacks({
-      onRender: renderCanvas,
-      onTransformEnd: () => setObjects([...objects]),
-    })
-  }, [objects, renderCanvas])
-
-  const { handleDrop, handleGlobalPaste } = useCanvasImg({
-    canvas: canvasRef,
-    objects,
-    setObjects,
+  const {
+    setObjects: updateCanvasObjects,
+    controller,
+    interactionManager,
+    addObject,
+  } = useInfiniteCanvas({
+    canvasRef,
+    selectionManager: selectionManagerRef.current,
+    transformManager: transformManagerRef.current,
+    debug: isDebug,
+    initialZoom: 1,
   })
 
   useEffect(() => {
+    console.log("Canvas mount state:", {
+      canvasElement: canvasRef.current,
+      controller,
+      hasInteractionManager: !!interactionManager,
+    })
+  }, [controller, interactionManager])
+
+  useEffect(() => {
+    if (controller) {
+      controller.setObjects(objects)
+    }
+  }, [objects, controller])
+
+  const selectedObject = useCanvasSelection(selectionManagerRef.current)
+
+  const { undo, redo, deleteObject } = useCanvasCommands({
+    canvas: canvasRef,
+    objects,
+    selectionManager: selectionManagerRef.current,
+    transformManager: transformManagerRef.current,
+    onUpdate: () => {
+      controller?.render()
+    },
+    debug: isDebug,
+  })
+
+  const { handleDrop } = useCanvasImg({
+    canvas: canvasRef,
+    objects,
+    setObjects: updateCanvasObjects,
+  })
+
+  useEffect(() => {
+    if (!canvasRef.current) return
+
     registerTextActions()
     registerImageActions()
-    registerTextGlobalActions(canvasRef.current!, (obj) =>
-      setObjects((prev) => [...prev, obj])
-    )
-    registerGlobalImgActions(canvasRef.current!, (obj) =>
-      setObjects((prev) => [...prev, obj])
-    )
-  }, [])
+    registerTextGlobalActions(canvasRef.current, addObject)
+    registerGlobalImgActions(canvasRef.current, addObject)
+
+    console.log("Actions registered:", {
+      global: toolbarRegistry.getGlobalActions(),
+      groups: toolbarRegistry.getGroups(),
+    })
+
+    setActionsReady(true)
+  }, [addObject])
 
   const handleToolbarAction = useCallback(
     (actionId: string, object?: BaseObject) => {
+      console.log("Handling action:", actionId, object, controller)
+
+      if (!controller) return
+
       if (object) {
         const actions = toolbarRegistry.getObjectActions(
           object.type,
@@ -125,18 +105,19 @@ export function Canvas() {
         const action = actions.find((a) => a.id === actionId)
         if (action) {
           action.handler(object)
-          setObjects([...objects])
+          updateCanvasObjects([...objects])
+          controller.render()
         }
       } else {
         const action = toolbarRegistry
           .getGlobalActions()
           .find((a) => a.id === actionId)
-        if (action && action.global) {
+        if (action?.global) {
           action.handler()
         }
       }
     },
-    [objects]
+    [objects, updateCanvasObjects, controller]
   )
 
   useEffect(() => {
@@ -161,33 +142,62 @@ export function Canvas() {
       }
 
       if (e.key === KeyboardShortcuts.DELETE && selectedObject) {
-        console.log("DELETE COMMAND")
         e.preventDefault()
         deleteObject(selectedObject)
-        selectionManager.current.clearSelection()
+        selectionManagerRef.current.clearSelection()
         return
       }
     }
 
     window.addEventListener("keydown", handleKeyboard)
     return () => window.removeEventListener("keydown", handleKeyboard)
-  }, [undo, redo, objects, selectedObject, deleteObject])
+  }, [undo, redo, selectedObject, deleteObject])
+
+  useEffect(() => {
+    if (!containerRef.current || !canvasRef.current) return
+
+    const resizeObserver = new ResizeObserver(() => {
+      if (!containerRef.current || !canvasRef.current) return
+
+      const { width, height } = containerRef.current.getBoundingClientRect()
+      const dpr = window.devicePixelRatio || 1
+
+      canvasRef.current.width = width * dpr
+      canvasRef.current.height = height * dpr
+      canvasRef.current.style.width = `${width}px`
+      canvasRef.current.style.height = `${height}px`
+
+      controller?.render()
+    })
+
+    resizeObserver.observe(containerRef.current)
+    return () => resizeObserver.disconnect()
+  }, [controller])
 
   return (
-    <div className="fixed inset-0 overflow-hidden outline-none">
+    <div ref={containerRef} className="fixed inset-0 overflow-hidden">
       <canvas
-        tabIndex={0}
         ref={canvasRef}
-        className="w-full h-full outline-none"
+        tabIndex={0}
+        className="w-full h-full outline-none touch-none"
         onDrop={handleDrop}
         onDragOver={(e) => e.preventDefault()}
       />
 
-      <Toolbar selectedObject={selectedObject} onAction={handleToolbarAction} />
+      <div className="fixed top-0 left-0 right-0 flex justify-center p-4 pointer-events-none">
+        <div className="pointer-events-auto">
+          <Toolbar
+            selectedObject={selectedObject}
+            onAction={handleToolbarAction}
+          />
+        </div>
+      </div>
+
       {isDebug && (
         <div className="fixed bottom-4 right-4 text-xs text-white/50 font-mono">
           <div>Objects: {objects.length}</div>
           <div>Selected: {selectedObject?.id ?? "none"}</div>
+          <div>Zoom: {controller?.camera.zoom.toFixed(2)}x</div>
         </div>
       )}
     </div>

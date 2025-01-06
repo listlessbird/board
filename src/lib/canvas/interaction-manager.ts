@@ -37,6 +37,8 @@ export class InteractionManager {
 
   private abortController: AbortController
   constructor(private opts: InteractionManagerOpts) {
+    console.log("[DEBUG] InteractionManager created")
+
     this.commandProcessor = new CanvasInteractionCommandProcessor({
       debug: opts.debug,
       maxUndoStackSize: 100,

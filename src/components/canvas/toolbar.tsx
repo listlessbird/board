@@ -44,12 +44,6 @@ export function Toolbar<T extends BaseObject>({
     </button>
   )
 
-  console.log("Rendering toolbar with actions:", {
-    globalActions,
-    objectActions,
-    groups,
-  })
-
   return (
     <div className="fixed top-4 left-1/2 -translate-x-1/2 bg-slate-800 rounded-lg shadow-lg p-2">
       <div className="flex gap-2">

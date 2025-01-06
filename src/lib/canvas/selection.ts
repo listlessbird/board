@@ -1,4 +1,3 @@
-import { Position } from "@/types"
 import { BaseObject } from "@/lib/canvas/objects/base"
 
 export class SelectionManager {
@@ -6,22 +5,9 @@ export class SelectionManager {
   private listeners: Set<() => void> = new Set()
 
   constructor() {
+    console.log("[DEBUG] SelectionManager created")
     this.selectedObjects = new Set()
     this.listeners = new Set()
-  }
-
-  handleClick(objects: BaseObject[], point: Position): BaseObject | null {
-    // check from top to bottom
-    for (let i = objects.length - 1; i >= 0; i--) {
-      const obj = objects[i]
-      if (obj.containsPoint(point)) {
-        this.select(obj)
-        return obj
-      }
-    }
-
-    this.clearSelection()
-    return null
   }
 
   select(object: BaseObject): void {
@@ -32,7 +18,7 @@ export class SelectionManager {
     console.debug("[DEBUG] SelectionManager selecting:", {
       objId: object.id,
       type: object.type,
-      currentSelection: Array.from(this.selectedObjects).map((o) => o.id),
+      currentSelections: Array.from(this.selectedObjects).map((o) => o.id),
     })
     this.clearSelection()
     object.selected = true

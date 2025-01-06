@@ -17,6 +17,16 @@ export class ViewportManager {
   private currentBounds: ViewPortBounds | null = null
   private debug: boolean
 
+  private lastCameraState: {
+    x: number
+    y: number
+    zoom: number
+  } | null = null
+  private lastDimensions: {
+    width: number
+    height: number
+  } | null = null
+
   constructor(options: ViewPortManagerOptions = {}) {
     this.coordinateSystem = new CoordinateSystem()
     this.cullingMargin = options.cullingMargin ?? 100
@@ -31,6 +41,34 @@ export class ViewportManager {
     canvasWidth: number,
     canvasHeight: number
   ): ViewPortBounds {
+    // Check if camera and dimensions haven't changed
+    if (
+      this.currentBounds &&
+      this.lastCameraState &&
+      this.lastDimensions &&
+      this.lastCameraState.x === camera.x &&
+      this.lastCameraState.y === camera.y &&
+      this.lastCameraState.zoom === camera.zoom &&
+      this.lastDimensions.width === canvasWidth &&
+      this.lastDimensions.height === canvasHeight
+    ) {
+      if (this.debug) {
+        console.debug("[ViewportManager] Skipping update - no changes detected")
+      }
+      return this.currentBounds
+    }
+
+    // Update tracking state
+    this.lastCameraState = {
+      x: camera.x,
+      y: camera.y,
+      zoom: camera.zoom,
+    }
+    this.lastDimensions = {
+      width: canvasWidth,
+      height: canvasHeight,
+    }
+
     const bounds = this.coordinateSystem.getVisibleBounds(
       camera,
       canvasWidth,
@@ -85,12 +123,12 @@ export class ViewportManager {
       worldBounds.top <= this.currentBounds.bottom
 
     if (this.debug) {
-      console.debug("[ViewportManager] Object Visibility Check:", {
-        objectId: obj.id,
-        worldBounds,
-        viewportBounds: this.currentBounds,
-        isVisible,
-      })
+      // console.debug("[ViewportManager] Object Visibility Check:", {
+      //   objectId: obj.id,
+      //   worldBounds,
+      //   viewportBounds: this.currentBounds,
+      //   isVisible,
+      // })
     }
 
     return isVisible
@@ -105,12 +143,12 @@ export class ViewportManager {
     const visible = objects.filter((o) => this.isObjectVisible(o))
 
     if (this.debug) {
-      console.debug("[ViewportManager] Visible Objects:", {
-        total: objects.length,
-        visible: visible.length,
-        cullRate: (1 - visible.length / objects.length) * 100,
-        renderRate: (visible.length / objects.length) * 100,
-      })
+      // console.debug("[ViewportManager] Visible Objects:", {
+      //   total: objects.length,
+      //   visible: visible.length,
+      //   cullRate: (1 - visible.length / objects.length) * 100,
+      //   renderRate: (visible.length / objects.length) * 100,
+      // })
     }
 
     return visible

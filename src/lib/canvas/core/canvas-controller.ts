@@ -51,6 +51,7 @@ export class CanvasController extends CanvasEventEmitter<CanvasEvents> {
     }
 
     this.context = ctx
+    // @ts-expect-error retarded
     this.options = {
       initialZoom: 1,
       gridSize: 10,
@@ -82,7 +83,11 @@ export class CanvasController extends CanvasEventEmitter<CanvasEvents> {
       baseGridSize: this.options.gridSize,
     })
 
-    this.selectionManager = new SelectionManager()
+    if (!this.options.selectionManager) {
+      console.warn("[CanvasController] No selection manager provided")
+    }
+
+    this.selectionManager = options.selectionManager ?? new SelectionManager()
 
     this.selectionManager.subscribe(() => {
       this.emit(
@@ -189,7 +194,15 @@ export class CanvasController extends CanvasEventEmitter<CanvasEvents> {
   }
 
   private startRenderLoop(): void {
+    // let lastRender = 0
+    // const minRenderInterval = 1000 / 60
+
     const loop = (timestamp: number) => {
+      // const delta = timestamp - lastRender
+
+      // if (delta >= minRenderInterval) {
+      //   lastRender = timestamp
+      // }
       this.render(timestamp)
       this.rafId = requestAnimationFrame(loop)
     }
@@ -458,7 +471,6 @@ export class CanvasController extends CanvasEventEmitter<CanvasEvents> {
     const position = this.getMousePosition(e)
 
     if (e.buttons === 2 || e.button === 2 || (e.buttons === 1 && e.altKey)) {
-      e.preventDefault()
       this.camera.isDragging = true
       this.camera.lastMousePosition = position
       this.canvas.style.cursor = "grabbing"
@@ -483,7 +495,6 @@ export class CanvasController extends CanvasEventEmitter<CanvasEvents> {
 
     // handle panning
     if (this.camera.isDragging && this.camera.lastMousePosition) {
-      e.preventDefault()
       const dx = position.x - this.camera.lastMousePosition.x
       const dy = position.y - this.camera.lastMousePosition.y
 
@@ -495,7 +506,6 @@ export class CanvasController extends CanvasEventEmitter<CanvasEvents> {
 
   private handleMouseUp(e: MouseEvent): void {
     if (this.camera.isDragging) {
-      e.preventDefault()
       this.camera.isDragging = false
       this.camera.lastMousePosition = null
       this.canvas.style.cursor = "default"

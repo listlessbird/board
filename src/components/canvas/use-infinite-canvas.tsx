@@ -1,3 +1,4 @@
+"use client"
 import { CanvasController } from "@/lib/canvas/core/canvas-controller"
 import { InteractionManager } from "@/lib/canvas/interaction-manager"
 import { BaseObject } from "@/lib/canvas/objects/base"
@@ -8,21 +9,22 @@ import { useCallback, useEffect, useRef, useState } from "react"
 
 interface UseInfiniteCanvasOptions {
   canvasRef: React.RefObject<HTMLCanvasElement>
-  selectionManager: SelectionManager
-  transformManager: TransformManager
+  // selectionManager: SelectionManager
+  // transformManager: TransformManager
   initialZoom?: number
   debug?: boolean
 }
 
 export function useInfiniteCanvas({
   canvasRef,
-  transformManager,
-  selectionManager,
   initialZoom = 1,
   debug = false,
 }: UseInfiniteCanvasOptions) {
   const controllerRef = useRef<CanvasController | null>(null)
   const interactionManagerRef = useRef<InteractionManager | null>(null)
+  const selectionManagerRef = useRef<SelectionManager | null>(null)
+  const transformManagerRef = useRef<TransformManager | null>(null)
+
   const objectsRef = useRef<BaseObject[]>([])
 
   // only set state for UI updates
@@ -31,7 +33,19 @@ export function useInfiniteCanvas({
   const [bounds, setBounds] = useState<ViewPortBounds | null>(null)
 
   useEffect(() => {
-    if (!canvasRef.current) return
+    selectionManagerRef.current = new SelectionManager()
+    transformManagerRef.current = new TransformManager()
+
+    return () => {
+      console.log("Destroying selection and transform managers")
+
+      selectionManagerRef.current = null
+      transformManagerRef.current = null
+    }
+  }, [selectionManagerRef, transformManagerRef])
+
+  useEffect(() => {
+    if (!canvasRef.current || !selectionManagerRef.current) return
 
     if (controllerRef.current) {
       controllerRef.current.destroy()
@@ -43,6 +57,7 @@ export function useInfiniteCanvas({
     const controller = new CanvasController(canvasRef.current, {
       initialZoom,
       debug,
+      selectionManager: selectionManagerRef.current,
     })
     controllerRef.current = controller
 
@@ -53,17 +68,13 @@ export function useInfiniteCanvas({
     interactionManagerRef.current = new InteractionManager({
       canvas: canvasRef.current,
       getObjects: () => objectsRef.current,
-      selectionManager,
+      selectionManager: selectionManagerRef.current!,
       camera: controller.camera,
-      transformManager,
+      transformManager: transformManagerRef.current!,
       getObjectAtPoint: (point) => {
-        const worldPoint = controller.coordinateSystem.screenToWorld(
-          point,
-          controller.camera
-        )
         for (let i = objectsRef.current.length - 1; i >= 0; i--) {
           const obj = objectsRef.current[i]
-          if (obj.containsPoint(worldPoint)) {
+          if (obj.containsPoint(point)) {
             return obj
           }
         }
@@ -77,7 +88,7 @@ export function useInfiniteCanvas({
       debug,
     })
 
-    transformManager.setCallbacks({
+    transformManagerRef.current.setCallbacks({
       onRender: () => controller.render(),
       onTransformEnd: () => {
         setObjects([...objectsRef.current])
@@ -109,7 +120,7 @@ export function useInfiniteCanvas({
         controllerRef.current = null
       }
     }
-  }, [canvasRef, initialZoom, debug, selectionManager, transformManager])
+  }, [canvasRef, initialZoom, debug])
 
   const setObjectsHandler = useCallback((newObjects: BaseObject[]) => {
     if (!controllerRef.current) return
@@ -165,5 +176,7 @@ export function useInfiniteCanvas({
     panTo,
     controller: controllerRef.current,
     interactionManager: interactionManagerRef.current,
+    selectionManager: selectionManagerRef.current,
+    transformManager: transformManagerRef.current,
   }
 }

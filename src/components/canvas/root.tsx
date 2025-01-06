@@ -1,8 +1,6 @@
 "use client"
 import { useCallback, useEffect, useRef, useState } from "react"
 import { BaseObject } from "@/lib/canvas/objects/base"
-import { SelectionManager } from "@/lib/canvas/selection"
-import { TransformManager } from "@/lib/canvas/transform"
 import { useInfiniteCanvas } from "@/components/canvas/use-infinite-canvas"
 import { useCanvasSelection } from "@/components/canvas/use-canvas-selection"
 import { useCanvasCommands } from "@/components/canvas/use-canvas-commands"
@@ -22,8 +20,6 @@ import { KeyboardShortcuts } from "@/lib/constants"
 export function Canvas() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
-  const selectionManagerRef = useRef<SelectionManager>(new SelectionManager())
-  const transformManagerRef = useRef<TransformManager>(new TransformManager())
 
   const [isDebug] = useState(() => process.env.NODE_ENV === "development")
   const [objects, setObjects] = useState<BaseObject[]>([])
@@ -33,11 +29,11 @@ export function Canvas() {
     setObjects: updateCanvasObjects,
     controller,
     interactionManager,
+    selectionManager,
+    transformManager,
     addObject,
   } = useInfiniteCanvas({
     canvasRef,
-    selectionManager: selectionManagerRef.current,
-    transformManager: transformManagerRef.current,
     debug: isDebug,
     initialZoom: 1,
   })
@@ -56,13 +52,13 @@ export function Canvas() {
     }
   }, [objects, controller])
 
-  const selectedObject = useCanvasSelection(selectionManagerRef.current)
+  const selectedObject = useCanvasSelection(selectionManager!)
 
   const { undo, redo, deleteObject } = useCanvasCommands({
     canvas: canvasRef,
     objects,
-    selectionManager: selectionManagerRef.current,
-    transformManager: transformManagerRef.current,
+    selectionManager: selectionManager!,
+    transformManager: transformManager!,
     onUpdate: () => {
       controller?.render()
     },
@@ -144,7 +140,7 @@ export function Canvas() {
       if (e.key === KeyboardShortcuts.DELETE && selectedObject) {
         e.preventDefault()
         deleteObject(selectedObject)
-        selectionManagerRef.current.clearSelection()
+        selectionManager.clearSelection()
         return
       }
     }

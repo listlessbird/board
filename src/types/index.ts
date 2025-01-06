@@ -1,6 +1,7 @@
 import { BaseObject } from "@/lib/canvas/objects/base"
 import { ImageObject } from "@/lib/canvas/objects/image"
 import { TextObject } from "@/lib/canvas/objects/text"
+import { SelectionManager } from "@/lib/canvas/selection"
 
 export interface Position {
   x: number
@@ -21,6 +22,7 @@ export interface Camera {
 }
 
 export interface CanvasControllerOptions {
+  selectionManager?: SelectionManager
   initialZoom?: number
   gridSize?: number
   /*

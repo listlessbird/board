@@ -11,6 +11,7 @@ import {
   CanvasEvents,
   Dimensions,
   Position,
+  ZoomAnimation,
 } from "@/types"
 
 export class CanvasController extends CanvasEventEmitter<CanvasEvents> {
@@ -19,19 +20,24 @@ export class CanvasController extends CanvasEventEmitter<CanvasEvents> {
   camera: Camera
   private dimensions: Dimensions = { width: 0, height: 0 }
   private selectionManager: SelectionManager
-  private transformManager: TransformManager
   private options: Required<CanvasControllerOptions>
   private rafId: number | null = null
   private isDestroyed: boolean = false
-
   coordinateSystem: CoordinateSystem
   private viewportManager: ViewportManager
   private infiniteGrid: InfiniteGrid
   private lastFrameTime: number = 0
   private frameCount: number = 0
   private fps: number = 0
-
   private abortController: AbortController
+  private isZooming: boolean = false
+  private zoomAnimationFrame: number | null = null
+  private animateZoom: boolean
+  private zoomAnimationDuration: number
+  private currentZoomAnimation: ZoomAnimation | null = null
+  private zoomDebounceTimeout: number | null = null
+  private lastWheelEvent: { deltaY: number; position: Position } | null = null
+
   constructor(
     private readonly canvas: HTMLCanvasElement,
     options: CanvasControllerOptions = {}
@@ -52,6 +58,8 @@ export class CanvasController extends CanvasEventEmitter<CanvasEvents> {
       minZoom: 0.1,
       maxZoom: 10,
       debug: process.env.NODE_ENV === "development",
+      animateZoom: true,
+      zoomAnimationDuration: 150,
       ...options,
     }
 
@@ -75,7 +83,6 @@ export class CanvasController extends CanvasEventEmitter<CanvasEvents> {
     })
 
     this.selectionManager = new SelectionManager()
-    this.transformManager = new TransformManager()
 
     this.selectionManager.subscribe(() => {
       this.emit(
@@ -83,6 +90,9 @@ export class CanvasController extends CanvasEventEmitter<CanvasEvents> {
         this.selectionManager.getSelectedObjects()[0] || null
       )
     })
+
+    this.animateZoom = options.animateZoom ?? false
+    this.zoomAnimationDuration = options.zoomAnimationDuration ?? 150
 
     this.abortController = new AbortController()
 
@@ -196,19 +206,6 @@ export class CanvasController extends CanvasEventEmitter<CanvasEvents> {
     this.emit("camera:change", { ...this.camera })
   }
 
-  destroy(): void {
-    this.isDestroyed = true
-
-    this.abortController.abort()
-
-    if (this.rafId) {
-      cancelAnimationFrame(this.rafId)
-      this.rafId = null
-    }
-
-    this.clear()
-  }
-
   clear(): void {
     this.objects = []
     this.emit("objects:change", [])
@@ -232,15 +229,19 @@ export class CanvasController extends CanvasEventEmitter<CanvasEvents> {
 
     this.canvas.addEventListener("wheel", this.handleWheel.bind(this), {
       signal,
+      passive: false,
     })
     this.canvas.addEventListener("mousedown", this.handleMouseDown.bind(this), {
       signal,
+      passive: true,
     })
     this.canvas.addEventListener("mousemove", this.handleMouseMove.bind(this), {
+      passive: true,
       signal,
     })
     this.canvas.addEventListener("mouseup", this.handleMouseUp.bind(this), {
       signal,
+      passive: true,
     })
 
     this.canvas.addEventListener(
@@ -251,7 +252,10 @@ export class CanvasController extends CanvasEventEmitter<CanvasEvents> {
       }
     )
 
-    window.addEventListener("resize", this.handleResize.bind(this), { signal })
+    window.addEventListener("resize", this.handleResize.bind(this), {
+      signal,
+      passive: true,
+    })
 
     this.handleResize()
   }
@@ -259,14 +263,120 @@ export class CanvasController extends CanvasEventEmitter<CanvasEvents> {
   private handleContextMenu(e: MouseEvent): void {
     e.preventDefault()
   }
+  private handleAnimatedZoom(animation: ZoomAnimation): void {
+    // remove existing animation
+    if (this.currentZoomAnimation) {
+      this.updateZoomImmediately(this.currentZoomAnimation.targetZoom, {
+        x: this.currentZoomAnimation.targetX,
+        y: this.currentZoomAnimation.targetY,
+      })
+    }
+
+    this.currentZoomAnimation = animation
+    // requestAnimationFrame(() => this.animateZoomFrame())
+    this.animateZoomFrame()
+  }
+
+  private animateZoomFrame() {
+    if (!this.currentZoomAnimation) return
+
+    const now = performance.now()
+    const elapsed = now - this.currentZoomAnimation.startTime
+    const progress = Math.min(elapsed / this.currentZoomAnimation.duration, 1)
+
+    const ease = (t: number): number => {
+      const x = 1 - t
+      return 1 - x * x * x
+    }
+
+    const eased = ease(progress)
+
+    const currentZoom =
+      this.currentZoomAnimation.startZoom +
+      (this.currentZoomAnimation.targetZoom -
+        this.currentZoomAnimation.startZoom) *
+        eased
+
+    const currentX =
+      this.currentZoomAnimation.startX +
+      (this.currentZoomAnimation.targetX - this.currentZoomAnimation.startX) *
+        eased
+
+    const currentY =
+      this.currentZoomAnimation.startY +
+      (this.currentZoomAnimation.targetY - this.currentZoomAnimation.startY) *
+        eased
+
+    this.updateZoomImmediately(currentZoom, { x: currentX, y: currentY })
+
+    if (progress < 1) {
+      requestAnimationFrame(() => this.animateZoomFrame())
+    } else {
+      this.currentZoomAnimation = null
+    }
+  }
+
+  private updateZoomImmediately(zoom: number, center: Position): void {
+    this.camera.zoom = zoom
+    this.camera.x = center.x
+    this.camera.y = center.y
+    this.emit("zoom:change", zoom)
+  }
 
   private handleWheel(e: WheelEvent): void {
     e.preventDefault()
 
     const mousePos = this.getMousePosition(e)
     const worldPos = this.coordinateSystem.screenToWorld(mousePos, this.camera)
+    const zoomFactor = Math.exp(-e.deltaY * 0.001)
+    const targetZoom = Math.max(
+      this.options.minZoom,
+      Math.min(this.options.maxZoom, this.camera.zoom * zoomFactor)
+    )
+    const targetX = this.camera.x + worldPos.x * (this.camera.zoom - targetZoom)
+    const targetY = this.camera.y + worldPos.y * (this.camera.zoom - targetZoom)
 
-    const zoomFactor = e.deltaY > 0 ? 0.9 : 1.1
+    if (this.animateZoom) {
+      this.handleAnimatedZoom({
+        startZoom: this.camera.zoom,
+        targetZoom,
+        startX: this.camera.x,
+        targetX,
+        startY: this.camera.y,
+        targetY,
+        startTime: performance.now(),
+        duration: this.options.zoomAnimationDuration,
+        worldPos,
+      })
+    } else {
+      this.handleImmediateZoom(e)
+    }
+  }
+
+  private handleImmediateZoom(e: WheelEvent): void {
+    this.lastWheelEvent = {
+      deltaY: e.deltaY,
+      position: this.getMousePosition(e),
+    }
+
+    if (this.isZooming) return
+
+    this.isZooming = true
+    this.processImmediateZoom()
+  }
+
+  private processImmediateZoom() {
+    if (!this.lastWheelEvent) {
+      this.isZooming = false
+      return
+    }
+
+    const { deltaY, position } = this.lastWheelEvent
+    this.lastWheelEvent = null
+
+    const worldPos = this.coordinateSystem.screenToWorld(position, this.camera)
+
+    const zoomFactor = Math.exp(-deltaY * 0.001)
 
     const newZoom = Math.max(
       this.options.minZoom,
@@ -275,10 +385,22 @@ export class CanvasController extends CanvasEventEmitter<CanvasEvents> {
 
     this.camera.x += worldPos.x * (this.camera.zoom - newZoom)
     this.camera.y += worldPos.y * (this.camera.zoom - newZoom)
-
     this.camera.zoom = newZoom
 
     this.emit("zoom:change", this.camera.zoom)
+
+    if (this.lastWheelEvent) {
+      this.zoomAnimationFrame = requestAnimationFrame(this.processImmediateZoom)
+    } else {
+      if (this.zoomDebounceTimeout) {
+        clearTimeout(this.zoomDebounceTimeout)
+      }
+
+      this.zoomDebounceTimeout = window.setTimeout(() => {
+        this.isZooming = false
+        this.zoomDebounceTimeout = null
+      }, 150)
+    }
   }
 
   private getObjectAtPoint(worldPoint: Position): BaseObject | null {
@@ -365,5 +487,45 @@ export class CanvasController extends CanvasEventEmitter<CanvasEvents> {
   setObjects(objects: BaseObject[]): void {
     this.objects = objects
     this.emit("objects:change", objects)
+  }
+
+  destroy(): void {
+    this.isDestroyed = true
+
+    if (this.zoomAnimationFrame) {
+      cancelAnimationFrame(this.zoomAnimationFrame)
+    }
+
+    if (this.zoomDebounceTimeout) {
+      clearTimeout(this.zoomDebounceTimeout)
+    }
+
+    this.currentZoomAnimation = null
+    this.abortController.abort()
+
+    if (this.rafId) {
+      cancelAnimationFrame(this.rafId)
+      this.rafId = null
+    }
+
+    this.clear()
+  }
+
+  setZoomAnimation(enabled: boolean): void {
+    if (!enabled && this.currentZoomAnimation) {
+      this.updateZoomImmediately(this.currentZoomAnimation.targetZoom, {
+        x: this.currentZoomAnimation.targetX,
+        y: this.currentZoomAnimation.targetY,
+      })
+      this.currentZoomAnimation = null
+    }
+
+    this.animateZoom = enabled
+  }
+
+  setZoomAnimationDuration(duration: number): void {
+    if (duration > 0) {
+      this.zoomAnimationDuration = duration
+    }
   }
 }

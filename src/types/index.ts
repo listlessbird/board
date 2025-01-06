@@ -38,6 +38,8 @@ export interface CanvasControllerOptions {
   cullingMargin?: number
   minZoom?: number
   maxZoom?: number
+  animateZoom?: boolean
+  zoomAnimationDuration?: number
   debug?: boolean
 }
 
@@ -217,4 +219,18 @@ export interface InteractionCommand {
 export interface InteractionCommandProcessorOpts {
   debug?: boolean
   maxUndoStackSize?: number
+}
+
+export interface ZoomAnimation {
+  // initial zoom
+  startZoom: number
+  targetZoom: number
+  // init camera x
+  startX: number
+  targetX: number
+  startY: number
+  targetY: number
+  startTime: number
+  duration: number
+  worldPos: Position
 }

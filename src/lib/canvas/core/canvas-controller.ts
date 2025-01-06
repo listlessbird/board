@@ -4,7 +4,6 @@ import { InfiniteGrid } from "@/lib/canvas/core/infinite-grid"
 import { ViewportManager } from "@/lib/canvas/core/viewport-manager"
 import { BaseObject } from "@/lib/canvas/objects/base"
 import { SelectionManager } from "@/lib/canvas/selection"
-import { TransformManager } from "@/lib/canvas/transform"
 import {
   Camera,
   CanvasControllerOptions,
@@ -36,6 +35,7 @@ export class CanvasController extends CanvasEventEmitter<CanvasEvents> {
   private zoomAnimationDuration: number
   private currentZoomAnimation: ZoomAnimation | null = null
   private zoomDebounceTimeout: number | null = null
+  private _cachedVisibleObjects: BaseObject[] | null = null
   private lastWheelEvent: { deltaY: number; position: Position } | null = null
 
   constructor(
@@ -91,7 +91,7 @@ export class CanvasController extends CanvasEventEmitter<CanvasEvents> {
       )
     })
 
-    this.animateZoom = options.animateZoom ?? false
+    this.animateZoom = options.animateZoom ?? true
     this.zoomAnimationDuration = options.zoomAnimationDuration ?? 150
 
     this.abortController = new AbortController()
@@ -117,9 +117,15 @@ export class CanvasController extends CanvasEventEmitter<CanvasEvents> {
 
     this.context.save()
 
-    // camera transforms
-    this.context.translate(this.camera.x, this.camera.y)
-    this.context.scale(this.camera.zoom, this.camera.zoom)
+    const dpr = window.devicePixelRatio || 1
+    this.context.setTransform(
+      this.camera.zoom * dpr,
+      0,
+      0,
+      this.camera.zoom * dpr,
+      this.camera.x,
+      this.camera.y
+    )
 
     const bounds = this.viewportManager.updateViewPort(
       this.camera,
@@ -127,9 +133,24 @@ export class CanvasController extends CanvasEventEmitter<CanvasEvents> {
       this.dimensions.height
     )
 
-    this.infiniteGrid.render(this.context, this.camera, bounds)
+    // lets not render grids while animating
 
-    const visibleObjects = this.viewportManager.getVisibleObjects(this.objects)
+    const shouldRenderGrid =
+      !this.currentZoomAnimation || this.frameCount % 3 === 0
+
+    if (shouldRenderGrid) {
+      this.infiniteGrid.render(this.context, this.camera, bounds)
+    }
+
+    // use cached while animating
+
+    const visibleObjects = this.currentZoomAnimation
+      ? this._cachedVisibleObjects || []
+      : this.viewportManager.getVisibleObjects(this.objects)
+
+    if (!this.currentZoomAnimation) {
+      this._cachedVisibleObjects = visibleObjects
+    }
 
     visibleObjects.forEach((object) => object.render(this.context))
 
@@ -264,16 +285,18 @@ export class CanvasController extends CanvasEventEmitter<CanvasEvents> {
     e.preventDefault()
   }
   private handleAnimatedZoom(animation: ZoomAnimation): void {
-    // remove existing animation
     if (this.currentZoomAnimation) {
-      this.updateZoomImmediately(this.currentZoomAnimation.targetZoom, {
-        x: this.currentZoomAnimation.targetX,
-        y: this.currentZoomAnimation.targetY,
-      })
+      if (this.zoomAnimationFrame) {
+        cancelAnimationFrame(this.zoomAnimationFrame)
+        this.zoomAnimationFrame = null
+      }
     }
 
     this.currentZoomAnimation = animation
-    // requestAnimationFrame(() => this.animateZoomFrame())
+    this._cachedVisibleObjects = this.viewportManager.getVisibleObjects(
+      this.objects
+    )
+
     this.animateZoomFrame()
   }
 
@@ -284,12 +307,10 @@ export class CanvasController extends CanvasEventEmitter<CanvasEvents> {
     const elapsed = now - this.currentZoomAnimation.startTime
     const progress = Math.min(elapsed / this.currentZoomAnimation.duration, 1)
 
-    const ease = (t: number): number => {
-      const x = 1 - t
-      return 1 - x * x * x
-    }
-
-    const eased = ease(progress)
+    const eased =
+      progress < 0.5
+        ? 2 * progress * progress
+        : 1 - Math.pow(-2 * progress + 2, 2) / 2
 
     const currentZoom =
       this.currentZoomAnimation.startZoom +
@@ -297,23 +318,32 @@ export class CanvasController extends CanvasEventEmitter<CanvasEvents> {
         this.currentZoomAnimation.startZoom) *
         eased
 
-    const currentX =
-      this.currentZoomAnimation.startX +
-      (this.currentZoomAnimation.targetX - this.currentZoomAnimation.startX) *
-        eased
-
-    const currentY =
-      this.currentZoomAnimation.startY +
-      (this.currentZoomAnimation.targetY - this.currentZoomAnimation.startY) *
-        eased
-
-    this.updateZoomImmediately(currentZoom, { x: currentX, y: currentY })
-
-    if (progress < 1) {
-      requestAnimationFrame(() => this.animateZoomFrame())
-    } else {
-      this.currentZoomAnimation = null
+    const newCamera = {
+      x:
+        this.currentZoomAnimation.startX +
+        (this.currentZoomAnimation.targetX - this.currentZoomAnimation.startX) *
+          eased,
+      y:
+        this.currentZoomAnimation.startY +
+        (this.currentZoomAnimation.targetY - this.currentZoomAnimation.startY) *
+          eased,
+      zoom: currentZoom,
+      isDragging: this.camera.isDragging,
+      lastMousePosition: this.camera.lastMousePosition,
     }
+
+    this.camera = newCamera
+
+    if (progress === 1) {
+      this.currentZoomAnimation = null
+      this._cachedVisibleObjects = null
+      this.emit("zoom:change", currentZoom)
+      return
+    }
+
+    this.zoomAnimationFrame = requestAnimationFrame(() =>
+      this.animateZoomFrame()
+    )
   }
 
   private updateZoomImmediately(zoom: number, center: Position): void {
@@ -326,13 +356,22 @@ export class CanvasController extends CanvasEventEmitter<CanvasEvents> {
   private handleWheel(e: WheelEvent): void {
     e.preventDefault()
 
+    // throttle wheel
+    if (this.currentZoomAnimation) return
+
     const mousePos = this.getMousePosition(e)
     const worldPos = this.coordinateSystem.screenToWorld(mousePos, this.camera)
-    const zoomFactor = Math.exp(-e.deltaY * 0.001)
+    const zoomFactor = Math.exp(-e.deltaY * 0.007)
     const targetZoom = Math.max(
       this.options.minZoom,
       Math.min(this.options.maxZoom, this.camera.zoom * zoomFactor)
     )
+
+    // ignore if zoom is too small
+    if (Math.abs(this.camera.zoom - targetZoom) < 0.01) {
+      return
+    }
+
     const targetX = this.camera.x + worldPos.x * (this.camera.zoom - targetZoom)
     const targetY = this.camera.y + worldPos.y * (this.camera.zoom - targetZoom)
 

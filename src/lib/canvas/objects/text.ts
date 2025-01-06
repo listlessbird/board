@@ -22,7 +22,6 @@ export class TextObject extends BaseObject implements Transformable, Editable {
   private font: string
   private cursorPosition: number = 0
   private selectionStart: number | null = null
-  private blinkInterval: number | null = null
   private showCursor: boolean = false
   private reqAnimFrameId: number | null = null
   private lastBlinkTime: number = 0
@@ -33,7 +32,11 @@ export class TextObject extends BaseObject implements Transformable, Editable {
     super("text", position)
     this.content = content
     this.controlPointManager = new ControlPointManager()
-    this.style = style || { font: "Geist Mono", color: "#ffffff", size: 20 }
+    this.style = style || {
+      font: CANVAS_STYLE.font,
+      color: CANVAS_STYLE.color,
+      size: CANVAS_STYLE.size,
+    }
     this.font = `${this.style.size}px ${this.style.font}`
   }
 

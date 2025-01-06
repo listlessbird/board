@@ -9,6 +9,16 @@ const defaultGridStyles = {
   axisColor: "rgba(0, 0, 0, 0.2)",
 } satisfies GridOptions
 
+const defaultTextStyle = {
+  font: "Geist Mono",
+  color: "#ffffff",
+  size: 20,
+  weight: "normal",
+  italic: false,
+  textSelectionColor: "#1a7fd4",
+}
+
 export const CANVAS_STYLE = {
   ...defaultGridStyles,
+  ...defaultTextStyle,
 }

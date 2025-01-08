@@ -98,7 +98,10 @@ export class InteractionManager {
 
     if (hitObject) {
       const isSelected = hitObject.selected
-      const controlPoint = hitObject.getControlPointAtPosition(worldPosition)
+      const controlPoint = hitObject.getControlPointAtPosition(
+        worldPosition,
+        this.camera.zoom
+      )
 
       if (!isSelected) {
         const command = new SelectCommand(

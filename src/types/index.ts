@@ -125,8 +125,11 @@ export interface Transformable {
   getBounds(): Bounds
   getTransform(): Transform
   setTransform(transform: Transform): void
-  transformPointToLocal(point: Position): Position
-  getControlPointAtPosition(point: Position): ControlPointType
+  transformPointToLocal(point: Position, cameraZoom: number): Position
+  getControlPointAtPosition(
+    point: Position,
+    cameraZoom: number
+  ): ControlPointType
 }
 
 export interface Editable {

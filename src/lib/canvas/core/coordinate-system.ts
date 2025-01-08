@@ -16,10 +16,10 @@ export class CoordinateSystem {
     const dprAdjustedX = point.x * this.dpr
     const dprAdjustedY = point.y * this.dpr
 
-    return {
-      x: (dprAdjustedX - camera.x) / camera.zoom,
-      y: (dprAdjustedY - camera.y) / camera.zoom,
-    }
+    const worldX = (dprAdjustedX - camera.x) / camera.zoom
+    const worldY = (dprAdjustedY - camera.y) / camera.zoom
+
+    return { x: worldX, y: worldY }
   }
 
   /**

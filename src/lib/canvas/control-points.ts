@@ -40,18 +40,21 @@ export class ControlPointManager {
   drawControlPoints(
     ctx: CanvasRenderingContext2D,
     bounds: Bounds,
-    scale: number,
+    objectScale: number,
+    cameraZoom: number,
     isFlipped: boolean = false
   ): void {
     const points = this.getControlPoints(bounds)
-    const absScale = Math.abs(scale)
+    const absScale = Math.abs(objectScale)
+
+    const effectiveScale = absScale * cameraZoom
 
     ctx.save()
     ctx.fillStyle = this.style.fillStyle
     ctx.strokeStyle = this.style.strokeStyle
-    ctx.lineWidth = this.style.lineWidth / absScale
+    ctx.lineWidth = this.style.lineWidth / effectiveScale
 
-    const size = this.style.size / absScale
+    const size = this.style.size / effectiveScale
 
     points.forEach((p, index) => {
       ctx.beginPath()
@@ -66,16 +69,17 @@ export class ControlPointManager {
   drawRotationHandle(
     ctx: CanvasRenderingContext2D,
     bounds: Bounds,
-    scale: number
+    objectScale: number,
+    cameraZoom: number
   ): void {
-    const absScale = Math.abs(scale)
-    const size = this.style.size / absScale
-    const offset = this.rotationHandleOffset / absScale
+    const effectiveScale = Math.abs(objectScale) * cameraZoom
+    const size = this.style.size / effectiveScale
+    const offset = this.rotationHandleOffset / effectiveScale
 
     ctx.save()
     ctx.strokeStyle = this.style.strokeStyle
     ctx.fillStyle = this.style.fillStyle
-    ctx.lineWidth = this.style.lineWidth / absScale
+    ctx.lineWidth = this.style.lineWidth / effectiveScale
 
     // Draw connecting line
     ctx.beginPath()
@@ -117,25 +121,27 @@ export class ControlPointManager {
    * Checks if a point is near a control point
    * @param point Point to test
    * @param bounds Object bounds
-   * @param scale Current scale
+   * @param objectScale Current scale
    * @param transform Transform function to convert global to local coords
    */
   getControlPointAtPosition(
     point: Position,
     bounds: Bounds,
-    scale: number,
+    objectScale: number,
+    cameraZoom: number,
     transform: (point: Position) => Position
   ): ControlPointType {
+    console.log("ControlPointManager.getControlPointAtPosition", { cameraZoom })
     const localPoint = transform(point)
-    const absScale = Math.abs(scale)
+    const effectiveScale = Math.abs(objectScale) * cameraZoom
 
     // Check rotation handle first
     const rotationPoint = {
       x: 0,
-      y: bounds.top - this.rotationHandleOffset / absScale,
+      y: bounds.top - this.rotationHandleOffset / effectiveScale,
     }
 
-    if (this.isPointNearPosition(localPoint, rotationPoint, scale)) {
+    if (this.isPointNearPosition(localPoint, rotationPoint, objectScale)) {
       return ControlPointType.Rotation
     }
 
@@ -143,7 +149,7 @@ export class ControlPointManager {
     const controlPoints = this.getControlPoints(bounds)
 
     // Larger hit area for easier selection
-    const threshold = (this.style.size * 2) / absScale
+    const threshold = (this.style.size * 2) / effectiveScale
 
     // Debug info for hit testing
     const hitTestResults = controlPoints.map((cp, index) => {
@@ -155,7 +161,7 @@ export class ControlPointManager {
 
     console.debug("[ControlPointManager] Hit test results:", {
       localPoint,
-      scale: absScale,
+      scale: effectiveScale,
       threshold,
       results: hitTestResults,
     })
@@ -171,9 +177,9 @@ export class ControlPointManager {
   private isPointNearPosition(
     point: Position,
     position: Position,
-    scale: number
+    effectiveScale: number
   ): boolean {
-    const threshold = (this.style.size * 2) / Math.abs(scale)
+    const threshold = (this.style.size * 2) / Math.abs(effectiveScale)
     const distance = Math.sqrt(
       Math.pow(point.x - position.x, 2) + Math.pow(point.y - position.y, 2)
     )

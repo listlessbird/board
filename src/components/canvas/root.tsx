@@ -188,14 +188,6 @@ export function Canvas() {
           />
         </div>
       </div>
-
-      {isDebug && (
-        <div className="fixed bottom-4 right-4 text-xs text-white/50 font-mono">
-          <div>Objects: {objects.length}</div>
-          <div>Selected: {selectedObject?.id ?? "none"}</div>
-          <div>Zoom: {controller?.camera.zoom.toFixed(2)}x</div>
-        </div>
-      )}
     </div>
   )
 }

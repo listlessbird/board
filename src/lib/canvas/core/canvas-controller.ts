@@ -157,7 +157,9 @@ export class CanvasController extends CanvasEventEmitter<CanvasEvents> {
       this._cachedVisibleObjects = visibleObjects
     }
 
-    visibleObjects.forEach((object) => object.render(this.context))
+    visibleObjects.forEach((object) =>
+      object.render(this.context, this.camera.zoom)
+    )
 
     this.context.restore()
 
@@ -459,7 +461,7 @@ export class CanvasController extends CanvasEventEmitter<CanvasEvents> {
     for (let i = this.objects.length - 1; i >= 0; i--) {
       const object = this.objects[i]
 
-      if (object.containsPoint(worldPoint)) {
+      if (object.containsPoint(worldPoint, this.camera.zoom)) {
         return object
       }
     }

@@ -45,7 +45,14 @@ export function useInfiniteCanvas({
   }, [selectionManagerRef, transformManagerRef])
 
   useEffect(() => {
-    if (!canvasRef.current || !selectionManagerRef.current) return
+    if (
+      !canvasRef.current ||
+      !selectionManagerRef.current ||
+      !transformManagerRef.current
+    ) {
+      console.error("No canvas, selection or transform managers found")
+      return
+    }
 
     if (controllerRef.current) {
       controllerRef.current.destroy()
@@ -72,9 +79,14 @@ export function useInfiniteCanvas({
       camera: controller.camera,
       transformManager: transformManagerRef.current!,
       getObjectAtPoint: (point) => {
+        console.log("Runnign getObjectAtPoint from effect")
+        console.table({
+          zoom: controller.camera.zoom,
+          point,
+        })
         for (let i = objectsRef.current.length - 1; i >= 0; i--) {
           const obj = objectsRef.current[i]
-          if (obj.containsPoint(point)) {
+          if (obj.containsPoint(point, controller.camera.zoom)) {
             return obj
           }
         }
@@ -88,7 +100,7 @@ export function useInfiniteCanvas({
       debug,
     })
 
-    transformManagerRef.current.setCallbacks({
+    transformManagerRef.current?.setCallbacks({
       onRender: () => controller.render(),
       onTransformEnd: () => {
         setObjects([...objectsRef.current])

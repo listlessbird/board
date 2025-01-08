@@ -89,16 +89,18 @@ export class ImageObject extends BaseObject {
     }
   }
 
-  containsPoint(point: Position): boolean {
-    const local = this.transformPointToLocal(point)
-    const bounds = this.getBounds()
+  containsPoint(point: Position, cameraZoom: number): boolean {
+    // const local = this.transformPointToLocal(point)
+    // const bounds = this.getBounds()
 
-    return (
-      local.x >= bounds.left &&
-      local.x <= bounds.right &&
-      local.y >= bounds.top &&
-      local.y <= bounds.bottom
-    )
+    // return (
+    //   local.x >= bounds.left &&
+    //   local.x <= bounds.right &&
+    //   local.y >= bounds.top &&
+    //   local.y <= bounds.bottom
+    // )
+
+    return super.containsPoint(point, cameraZoom)
   }
 
   transformPointToLocal(point: Position): Position {

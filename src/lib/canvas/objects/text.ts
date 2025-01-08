@@ -58,7 +58,7 @@ export class TextObject extends BaseObject implements Transformable, Editable {
     }
   }
 
-  render(ctx: CanvasRenderingContext2D): void {
+  render(ctx: CanvasRenderingContext2D, cameraZoom: number): void {
     ctx.save()
 
     ctx.translate(this.transform.position.x, this.transform.position.y)
@@ -94,12 +94,14 @@ export class TextObject extends BaseObject implements Transformable, Editable {
         ctx,
         bounds,
         this.transform.scale,
+        cameraZoom,
         this.transform.isFlipped
       )
       this.controlPointManager.drawRotationHandle(
         ctx,
         bounds,
-        this.transform.scale
+        this.transform.scale,
+        cameraZoom
       )
     }
 
@@ -173,52 +175,59 @@ export class TextObject extends BaseObject implements Transformable, Editable {
     }
   }
 
-  containsPoint(point: Position): boolean {
-    const local = this.transformPointToLocal(point)
-    const bounds = this.getBounds()
+  containsPoint(point: Position, cameraZoom: number): boolean {
+    // const local = this.transformPointToLocal(point)
+    // const bounds = this.getBounds()
 
-    if (this.selected) {
-      const controlPoint = this.getControlPointAtPosition(point)
-      if (controlPoint !== ControlPointType.None) {
-        return true
-      }
-    }
+    // if (this.selected) {
+    //   const controlPoint = this.getControlPointAtPosition(point, cameraZoom)
+    //   if (controlPoint !== ControlPointType.None) {
+    //     return true
+    //   }
+    // }
 
-    return (
-      local.x >= bounds.left &&
-      local.x <= bounds.right &&
-      local.y >= bounds.top &&
-      local.y <= bounds.bottom
-    )
+    // return (
+    //   local.x >= bounds.left &&
+    //   local.x <= bounds.right &&
+    //   local.y >= bounds.top &&
+    //   local.y <= bounds.bottom
+    // )
+    return super.containsPoint(point, cameraZoom)
   }
 
   // transform point from global to local regardless of scale and rotation
-  transformPointToLocal(point: Position): Position {
-    const dx = point.x - this.transform.position.x
-    const dy = point.y - this.transform.position.y
+  // transformPointToLocal(point: Position): Position {
+  //   // const dx = point.x - this.transform.position.x
+  //   // const dy = point.y - this.transform.position.y
 
-    // rotation
+  //   // // rotation
 
-    const cos = Math.cos(-this.transform.rotation)
-    const sin = Math.sin(-this.transform.rotation)
-    const rx = dx * cos - dy * sin
-    const ry = dx * sin + dy * cos
+  //   // const cos = Math.cos(-this.transform.rotation)
+  //   // const sin = Math.sin(-this.transform.rotation)
+  //   // const rx = dx * cos - dy * sin
+  //   // const ry = dx * sin + dy * cos
 
-    const scaleX = this.transform.scale * (this.transform.isFlipped ? -1 : 1)
-    const scaleY = this.transform.scale
+  //   // const scaleX = this.transform.scale * (this.transform.isFlipped ? -1 : 1)
+  //   // const scaleY = this.transform.scale
 
-    return {
-      x: rx / scaleX,
-      y: ry / scaleY,
-    }
-  }
+  //   // return {
+  //   //   x: rx / scaleX,
+  //   //   y: ry / scaleY,
+  //   // }
 
-  getControlPointAtPosition(point: Position): ControlPointType {
+  //   return super.transformPointToLocal(point, cameraZoom)
+  // }
+
+  getControlPointAtPosition(
+    point: Position,
+    cameraZoom: number
+  ): ControlPointType {
     return this.controlPointManager.getControlPointAtPosition(
       point,
       this.getBounds(),
       this.transform.scale,
-      (p) => this.transformPointToLocal(p)
+      cameraZoom,
+      (p) => this.transformPointToLocal(p, cameraZoom)
     )
   }
 

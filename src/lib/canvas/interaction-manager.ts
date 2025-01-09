@@ -81,26 +81,24 @@ export class InteractionManager {
   }
 
   private handleMouseDown(e: MouseEvent): void {
+    // Get screen position directly - no conversion needed
     const screenPosition = this.getMousePosition(e)
-    const worldPosition = this.coordinateSystem.screenToWorld(
-      screenPosition,
-      this.camera
-    )
 
-    const hitObject = this.opts.getObjectAtPoint(worldPosition)
+    // Pass screen coordinates directly to hit testing
+    const hitObject = this.opts.getObjectAtPoint(screenPosition)
 
     this.logger.debug("Mouse Down Event", {
       screenPosition,
-      worldPosition,
       hitObject: hitObject?.id,
       selectedObjects: this.opts.selectionManager.getSelectedObjects(),
     })
 
     if (hitObject) {
       const isSelected = hitObject.selected
+      // Pass screen coordinates to control point hit testing
       const controlPoint = hitObject.getControlPointAtPosition(
-        worldPosition,
-        this.camera.zoom
+        screenPosition,
+        this.camera
       )
 
       if (!isSelected) {
@@ -120,12 +118,15 @@ export class InteractionManager {
         })
 
         this.isDragging = true
-        this.lastMousePosition = worldPosition
+        this.lastMousePosition = screenPosition
         this.activeControlPoint = controlPoint
+
+        // Pass screen coordinates to transform manager
         this.opts.transformManager.startDrag(
-          worldPosition,
+          screenPosition,
           controlPoint,
-          hitObject
+          hitObject,
+          this.camera
         )
 
         this.currentTransform = new TransformCommand(
@@ -145,12 +146,9 @@ export class InteractionManager {
 
     this.opts.onUpdate()
   }
+
   private handleMouseMove(e: MouseEvent): void {
     const screenPosition = this.getMousePosition(e)
-    const worldPosition = this.coordinateSystem.screenToWorld(
-      screenPosition,
-      this.camera
-    )
 
     if (this.isDragging && this.lastMousePosition) {
       const selectedObject = this.opts.selectionManager.getSelectedObjects()[0]
@@ -158,19 +156,23 @@ export class InteractionManager {
       if (selectedObject) {
         this.logger.debug("Dragging object", {
           screenPosition,
-          worldPosition,
           lastPosition: this.lastMousePosition,
           objectId: selectedObject.id,
           controlPoint: this.activeControlPoint,
           isDragging: this.isDragging,
         })
 
-        this.opts.transformManager.drag(selectedObject, worldPosition)
+        // Pass screen coordinates to transform manager
+        this.opts.transformManager.drag(
+          selectedObject,
+          screenPosition,
+          this.camera
+        )
         this.opts.onUpdate()
       }
     }
 
-    this.lastMousePosition = worldPosition
+    this.lastMousePosition = screenPosition
   }
 
   private handleMouseUp(e: MouseEvent): void {

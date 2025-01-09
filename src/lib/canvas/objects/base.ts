@@ -1,18 +1,22 @@
+import { ScreenSpaceSystem } from "../core/screen-space"
 import {
   Bounds,
+  Camera,
   CanvasObject,
   CanvasObjectType,
   ControlPointType,
   Position,
   Transform,
-  Transformable,
 } from "@/types"
 
-export abstract class BaseObject implements CanvasObject, Transformable {
+export abstract class BaseObject implements CanvasObject {
   id: string
   type: CanvasObjectType
   transform: Transform
   selected: boolean
+  protected screenSpace: ScreenSpaceSystem
+
+  protected static MIN_HIT_TARGET_SIZE = 20
 
   constructor(type: CanvasObjectType, position: Position) {
     this.id = Date.now().toString()
@@ -24,8 +28,84 @@ export abstract class BaseObject implements CanvasObject, Transformable {
       isFlipped: false,
     }
     this.selected = false
+    this.screenSpace = new ScreenSpaceSystem()
   }
 
+  /**
+   * Test if a screen coordinate point intersects with this object
+   */
+  containsPoint(screenPoint: Position, camera: Camera): boolean {
+    // If selected, check control points first
+    if (this.selected) {
+      const controlPoint = this.getControlPointAtPosition(screenPoint, camera)
+      if (controlPoint !== ControlPointType.None) {
+        return true
+      }
+    }
+
+    // Convert screen point to local object space
+    const localPoint = this.screenSpace.screenToLocalSpace(
+      screenPoint,
+      this.transform,
+      camera
+    )
+
+    // Get local bounds
+    const bounds = this.getBounds()
+
+    // Handle minimum hit target size
+    const objectWidth = bounds.right - bounds.left
+    const objectHeight = bounds.bottom - bounds.top
+    const minScreenSize = BaseObject.MIN_HIT_TARGET_SIZE / camera.zoom
+
+    if (objectWidth < minScreenSize || objectHeight < minScreenSize) {
+      // For small objects, use circular hit area
+      const centerX = (bounds.left + bounds.right) / 2
+      const centerY = (bounds.top + bounds.bottom) / 2
+
+      const dx = localPoint.x - centerX
+      const dy = localPoint.y - centerY
+      const distance = Math.sqrt(dx * dx + dy * dy)
+
+      const hitRadius = Math.max(
+        minScreenSize / 2,
+        Math.max(objectWidth, objectHeight) / 2
+      )
+
+      return distance <= hitRadius
+    }
+
+    // Normal bounds check with padding
+    const padding = minScreenSize / 4
+    return (
+      localPoint.x >= bounds.left - padding &&
+      localPoint.x <= bounds.right + padding &&
+      localPoint.y >= bounds.top - padding &&
+      localPoint.y <= bounds.bottom + padding
+    )
+  }
+
+  /**
+   * Get control point at screen position
+   */
+  abstract getControlPointAtPosition(
+    screenPoint: Position,
+    camera: Camera
+  ): ControlPointType
+
+  /**
+   * Get object bounds in local space
+   */
+  abstract getBounds(): Bounds
+
+  /**
+   * Render object
+   */
+  abstract render(ctx: CanvasRenderingContext2D, camera: Camera): void
+
+  /**
+   * Get world transform
+   */
   getTransform(): Transform {
     return {
       position: { ...this.transform.position },
@@ -35,6 +115,9 @@ export abstract class BaseObject implements CanvasObject, Transformable {
     }
   }
 
+  /**
+   * Set world transform
+   */
   setTransform(transform: Transform): void {
     this.transform = {
       position: { ...transform.position },
@@ -44,97 +127,21 @@ export abstract class BaseObject implements CanvasObject, Transformable {
     }
   }
 
-  transformPointToLocal(point: Position, cameraZoom: number): Position {
-    const dx = point.x - this.transform.position.x
-    const dy = point.y - this.transform.position.y
-
-    const cos = Math.cos(-this.transform.rotation)
-    const sin = Math.sin(-this.transform.rotation)
-    const rx = dx * cos - dy * sin
-    const ry = dx * sin + dy * cos
-
-    const scaleX =
-      this.transform.scale * (this.transform.isFlipped ? -1 : 1) * cameraZoom
-    const scaleY = this.transform.scale * cameraZoom
-
-    return {
-      x: rx / scaleX,
-      y: ry / scaleY,
-    }
+  /**
+   * Helper to convert screen point to local object space
+   */
+  protected screenToLocal(point: Position, camera: Camera): Position {
+    return this.screenSpace.screenToLocalSpace(point, this.transform, camera)
   }
 
-  protected static MIN_HIT_TARGET_SIZE = 20
-  containsPoint(point: Position, cameraZoom: number): boolean {
-    console.debug("BaseObject.containsPoint", {
-      point,
-      cameraZoom,
-      transform: this.transform,
-      id: this.id,
-      type: this.type,
-    })
-    if (this.selected) {
-      const controlPoint = this.getControlPointAtPosition(point, cameraZoom)
-      if (controlPoint !== ControlPointType.None) {
-        return true
-      }
-    }
-
-    const local = this.transformPointToLocal(point, cameraZoom)
-    console.debug("After transformPointToLocal", {
-      local,
-      bounds: this.getBounds(),
-      id: this.id,
-    })
-
-    const bounds = this.getBounds()
-
-    const inBounds =
-      local.x >= bounds.left &&
-      local.x <= bounds.right &&
-      local.y >= bounds.top &&
-      local.y <= bounds.bottom
-
-    console.debug("Bounds check result", {
-      inBounds,
-      local,
-      bounds,
-      id: this.id,
-      checks: {
-        left: `${local.x} >= ${bounds.left} = ${local.x >= bounds.left}`,
-        right: `${local.x} <= ${bounds.right} = ${local.x <= bounds.right}`,
-        top: `${local.y} >= ${bounds.top} = ${local.y >= bounds.top}`,
-        bottom: `${local.y} <= ${bounds.bottom} = ${local.y <= bounds.bottom}`,
-      },
-    })
-
-    if (inBounds) return true
-
-    // what if the smaller? use distance based hit testing
-
-    const objectWidth = bounds.right - bounds.left
-    const objectHeight = bounds.bottom - bounds.top
-
-    const minWorldSize = BaseObject.MIN_HIT_TARGET_SIZE / cameraZoom
-
-    if (objectWidth < minWorldSize || objectHeight < minWorldSize) {
-      const d = Math.sqrt(Math.pow(local.x, 2) + Math.pow(local.y, 2))
-
-      const hitRadius = Math.max(
-        minWorldSize / 2,
-        Math.min(objectWidth, objectHeight) / 2
-      )
-
-      return d <= hitRadius
-    }
-
-    return false
+  /**
+   * Helper to get screen space bounds
+   */
+  protected getScreenBounds(camera: Camera): Bounds {
+    return this.screenSpace.getScreenBounds(
+      this.getBounds(),
+      this.transform,
+      camera
+    )
   }
-
-  abstract render(ctx: CanvasRenderingContext2D, cameraZoom: number): void
-  abstract getBounds(): Bounds
-
-  abstract getControlPointAtPosition(
-    point: Position,
-    cameraZoom: number
-  ): ControlPointType
 }

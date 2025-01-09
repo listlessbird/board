@@ -3,6 +3,7 @@ import { BaseObject } from "@/lib/canvas/objects/base"
 import { CANVAS_STYLE } from "@/lib/canvas/style"
 import {
   Bounds,
+  Camera,
   ControlPointType,
   Editable,
   Position,
@@ -219,19 +220,37 @@ export class TextObject extends BaseObject implements Transformable, Editable {
   // }
 
   getControlPointAtPosition(
-    point: Position,
-    cameraZoom: number
+    screenPoint: Position,
+    camera: Camera
   ): ControlPointType {
+    // First, get our bounds in local space
+    const localBounds = this.getBounds()
+
+    console.debug("TextObject.getControlPointAtPosition - Local bounds:", {
+      localBounds,
+      screenPoint,
+      transform: this.transform,
+      camera,
+    })
+
+    // Get the bounds in screen space by transforming them
+    const screenBounds = this.screenSpace.getScreenBounds(
+      localBounds,
+      this.transform,
+      camera
+    )
+
+    console.debug("TextObject.getControlPointAtPosition - Screen bounds:", {
+      screenBounds,
+    })
+
     return this.controlPointManager.getControlPointAtPosition(
-      point,
-      this.getBounds(),
-      this.transform.scale,
-      cameraZoom,
-      (p) => this.transformPointToLocal(p, cameraZoom)
+      screenPoint,
+      screenBounds,
+      this.transform,
+      camera
     )
   }
-
-  // editing methods
 
   setUpdateCallback(updateFn: () => void): void {
     this.onUpdate = updateFn

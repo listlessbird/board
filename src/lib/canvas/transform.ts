@@ -1,84 +1,249 @@
-import { ControlPointManager } from "@/lib/canvas/control-points"
-import { BaseObject } from "@/lib/canvas/objects/base"
-import { ControlPointType, Position, Transform } from "@/types"
+import { ScreenSpaceSystem } from "./core/screen-space"
+import { ControlPointManager } from "./control-points"
+import { BaseObject } from "./objects/base"
+import { ControlPointType, Position, Transform, Camera } from "@/types"
 
 export class TransformManager {
   private isDragging: boolean = false
-  private lastMousePos: Position | null = null
+  private lastScreenPos: Position | null = null
   private activeControlPoint: ControlPointType = ControlPointType.None
   private initialTransform: Transform | null = null
-  private initialAngle: number | null = null
-  private initialDistance: number | null = null
+  private initialScreenAngle: number | null = null
+  private initialScreenDistance: number | null = null
+
+  private screenSpace: ScreenSpaceSystem
   private controlPointManager: ControlPointManager
-  private rafId: number | null = null
+
   private renderCallback: (() => void) | null = null
   private onTransformEnd: (() => void) | null = null
+  private rafId: number | null = null
+
   constructor() {
+    this.screenSpace = new ScreenSpaceSystem()
     this.controlPointManager = new ControlPointManager()
   }
 
+  /**
+   * Start dragging from screen position
+   */
   startDrag(
-    position: Position,
+    screenPosition: Position,
     controlPoint: ControlPointType,
-    object: BaseObject
+    object: BaseObject,
+    camera: Camera
   ): void {
+    // Debug for understanding the drag start state
     console.debug("[TransformManager] Starting drag:", {
-      position,
+      screenPosition,
       controlPoint,
       objectId: object.id,
-      objectType: object.type,
+      objectTransform: object.transform,
+      camera,
     })
+
     this.isDragging = true
-    this.lastMousePos = position
+    this.lastScreenPos = screenPosition
     this.activeControlPoint = controlPoint
     this.initialTransform = { ...object.transform }
 
+    // For scale operations, store initial distance in screen space
     if (this.isScaleHandle(controlPoint)) {
-      const center = object.transform.position
-      this.initialDistance = this.getDistance(center, position)
+      // Get object center in screen space
+      const centerWorld = object.transform.position
+      const centerScreen = this.screenSpace.getTransformedPoint(
+        centerWorld,
+        object.transform,
+        camera
+      )
+      this.initialScreenDistance = this.screenSpace.getScreenDistance(
+        centerScreen,
+        screenPosition
+      )
     }
 
+    // For rotation, store initial angle in screen space
     if (controlPoint === ControlPointType.Rotation) {
-      const center = object.transform.position
-      this.initialAngle = this.getAngle(center, position)
+      const centerWorld = object.transform.position
+      const centerScreen = this.screenSpace.getTransformedPoint(
+        centerWorld,
+        object.transform,
+        camera
+      )
+      this.initialScreenAngle = this.screenSpace.getScreenAngle(
+        centerScreen,
+        screenPosition
+      )
     }
 
     this.requestRender()
   }
 
-  drag(object: BaseObject, currentPos: Position): void {
-    if (!this.isDragging || !this.lastMousePos || !this.initialTransform) {
-      console.debug("[TransformManager] Drag stopped - not dragging")
+  /**
+   * Handle drag update in screen space
+   */
+  drag(object: BaseObject, currentScreenPos: Position, camera: Camera): void {
+    if (!this.isDragging || !this.lastScreenPos || !this.initialTransform) {
       return
     }
 
     console.debug("[TransformManager] Dragging:", {
       controlPoint: this.activeControlPoint,
-      isScaleHandle: this.isScaleHandle(this.activeControlPoint),
-      currentPos,
-      lastPos: this.lastMousePos,
+      currentScreenPos,
+      lastScreenPos: this.lastScreenPos,
+      camera,
     })
 
     switch (this.activeControlPoint) {
       case ControlPointType.None:
-        this.handleMove(object, currentPos)
+        this.handleMove(object, currentScreenPos, camera)
         break
       case ControlPointType.Rotation:
-        this.handleRotation(object, currentPos)
+        this.handleRotation(object, currentScreenPos, camera)
         break
       case ControlPointType.MiddleLeft:
       case ControlPointType.MiddleRight:
-        this.handleScale(object, currentPos)
-        this.handleFlip(object, currentPos)
+        this.handleScale(object, currentScreenPos, camera)
+        this.handleFlip(object, currentScreenPos, camera)
         break
       default:
         if (this.isScaleHandle(this.activeControlPoint)) {
-          this.handleScale(object, currentPos)
+          this.handleScale(object, currentScreenPos, camera)
         }
     }
 
-    this.lastMousePos = currentPos
+    this.lastScreenPos = currentScreenPos
     this.requestRender()
+  }
+
+  /**
+   * Handle object movement in screen space
+   */
+  private handleMove(
+    object: BaseObject,
+    currentScreenPos: Position,
+    camera: Camera
+  ): void {
+    if (!this.lastScreenPos) return
+
+    // Calculate delta in screen space
+    const dx = (currentScreenPos.x - this.lastScreenPos.x) / camera.zoom
+    const dy = (currentScreenPos.y - this.lastScreenPos.y) / camera.zoom
+
+    // Update object position in world space
+    object.transform.position.x += dx
+    object.transform.position.y += dy
+
+    console.debug("[TransformManager] Moving object:", {
+      dx,
+      dy,
+      objectId: object.id,
+      newPosition: object.transform.position,
+    })
+  }
+
+  /**
+   * Handle rotation in screen space
+   */
+  private handleRotation(
+    object: BaseObject,
+    currentScreenPos: Position,
+    camera: Camera
+  ): void {
+    if (!this.initialScreenAngle || !this.initialTransform) return
+
+    // Get center in screen space
+    const centerWorld = object.transform.position
+    const centerScreen = this.screenSpace.getTransformedPoint(
+      centerWorld,
+      object.transform,
+      camera
+    )
+
+    // Calculate current angle in screen space
+    const currentAngle = this.screenSpace.getScreenAngle(
+      centerScreen,
+      currentScreenPos
+    )
+    let deltaAngle = currentAngle - this.initialScreenAngle
+
+    // Normalize angle to -π to π
+    while (deltaAngle > Math.PI) deltaAngle -= 2 * Math.PI
+    while (deltaAngle < -Math.PI) deltaAngle += 2 * Math.PI
+
+    // Apply smoothing for better UX
+    const smoothing = 0.5
+    object.transform.rotation =
+      this.initialTransform.rotation + deltaAngle * smoothing
+  }
+
+  /**
+   * Handle scaling in screen space
+   */
+  private handleScale(
+    object: BaseObject,
+    currentScreenPos: Position,
+    camera: Camera
+  ): void {
+    if (!this.initialScreenDistance || !this.initialTransform) return
+
+    // Get center in screen space
+    const centerWorld = object.transform.position
+    const centerScreen = this.screenSpace.getTransformedPoint(
+      centerWorld,
+      object.transform,
+      camera
+    )
+
+    // Calculate scale factor from screen distances
+    const currentDistance = this.screenSpace.getScreenDistance(
+      centerScreen,
+      currentScreenPos
+    )
+    const scaleFactor = currentDistance / this.initialScreenDistance
+
+    console.debug("[TransformManager] Scaling:", {
+      initialDistance: this.initialScreenDistance,
+      currentDistance,
+      scaleFactor,
+    })
+
+    // Calculate and clamp new scale
+    let newScale = this.initialTransform.scale * scaleFactor
+    newScale = Math.max(0.1, Math.min(5, newScale))
+    object.transform.scale = newScale
+  }
+
+  /**
+   * Handle flipping in screen space
+   */
+  private handleFlip(
+    object: BaseObject,
+    currentScreenPos: Position,
+    camera: Camera
+  ): void {
+    if (!this.initialTransform || !this.lastScreenPos) return
+
+    const isHorizontalControl =
+      this.activeControlPoint === ControlPointType.MiddleLeft ||
+      this.activeControlPoint === ControlPointType.MiddleRight
+
+    if (!isHorizontalControl) return
+
+    // Get center in screen space
+    const centerWorld = object.transform.position
+    const centerScreen = this.screenSpace.getTransformedPoint(
+      centerWorld,
+      object.transform,
+      camera
+    )
+
+    // Check if we've crossed the center point
+    const initDir = this.lastScreenPos.x - centerScreen.x
+    const currentDir = currentScreenPos.x - centerScreen.x
+
+    if (Math.sign(initDir) !== Math.sign(currentDir)) {
+      object.transform.isFlipped = !object.transform.isFlipped
+    }
   }
 
   endDrag(): void {
@@ -89,11 +254,11 @@ export class TransformManager {
     }
 
     this.isDragging = false
-    this.lastMousePos = null
+    this.lastScreenPos = null
     this.activeControlPoint = ControlPointType.None
     this.initialTransform = null
-    this.initialAngle = null
-    this.initialDistance = null
+    this.initialScreenAngle = null
+    this.initialScreenDistance = null
   }
 
   setCallbacks(callbacks: {
@@ -104,20 +269,17 @@ export class TransformManager {
     this.onTransformEnd = callbacks.onTransformEnd
   }
 
-  private handleMove(object: BaseObject, currentPos: Position): void {
-    const dx = currentPos.x - this.lastMousePos!.x
-    const dy = currentPos.y - this.lastMousePos!.y
-
-    console.debug("[TransformManager] Moving object:", {
-      dx,
-      dy,
-      objectId: object.id,
-      currentPos,
-      lastPos: this.lastMousePos,
-    })
-
-    object.transform.position.x += dx
-    object.transform.position.y += dy
+  private isScaleHandle(controlPoint: ControlPointType): boolean {
+    return [
+      ControlPointType.TopLeft,
+      ControlPointType.TopCenter,
+      ControlPointType.TopRight,
+      ControlPointType.MiddleRight,
+      ControlPointType.BottomRight,
+      ControlPointType.BottomCenter,
+      ControlPointType.BottomLeft,
+      ControlPointType.MiddleLeft,
+    ].includes(controlPoint)
   }
 
   private requestRender(): void {
@@ -132,87 +294,6 @@ export class TransformManager {
       cancelAnimationFrame(this.rafId)
       this.rafId = null
     }
-  }
-
-  private handleRotation(object: BaseObject, currentPos: Position): void {
-    if (!this.initialAngle) return
-
-    const center = object.transform.position
-    const currentAngle = this.getAngle(center, currentPos)
-    let deltaAngle = currentAngle - this.initialAngle
-
-    // limit angle to -pi to pi
-    while (deltaAngle > Math.PI) deltaAngle -= 2 * Math.PI
-    while (deltaAngle < -Math.PI) deltaAngle += 2 * Math.PI
-
-    const smoothing = 0.5
-    object.transform.rotation =
-      this.initialTransform!.rotation + deltaAngle * smoothing
-  }
-
-  private handleFlip(object: BaseObject, currentPos: Position): void {
-    if (!this.initialTransform || !this.lastMousePos) return
-
-    const center = object.transform.position
-
-    const isHorizontalControl =
-      this.activeControlPoint === ControlPointType.MiddleLeft ||
-      this.activeControlPoint === ControlPointType.MiddleRight
-
-    if (!isHorizontalControl) return
-
-    const initDir = this.lastMousePos.x - center.x
-    const currentDir = currentPos.x - center.x
-
-    if (Math.sign(initDir) !== Math.sign(currentDir)) {
-      object.transform.isFlipped = !object.transform.isFlipped
-    }
-  }
-
-  private handleScale(object: BaseObject, currentPos: Position): void {
-    if (!this.initialDistance) {
-      console.warn("[TransformManager] No initial distance for scale")
-      return
-    }
-
-    const center = object.transform.position
-    const currentDistance = this.getDistance(center, currentPos)
-
-    console.debug("[TransformManager] Scaling:", {
-      controlPoint: this.activeControlPoint,
-      initialDistance: this.initialDistance,
-      currentDistance,
-      scaleFactor: currentDistance / this.initialDistance,
-    })
-
-    const factor = currentDistance / this.initialDistance
-    let newScale = this.initialTransform!.scale * factor
-    newScale = Math.max(0.1, Math.min(5, newScale))
-
-    object.transform.scale = newScale
-  }
-
-  private getDistance(p1: Position, p2: Position): number {
-    const dx = p2.x - p1.x
-    const dy = p2.y - p1.y
-    return Math.sqrt(dx * dx + dy * dy)
-  }
-
-  private getAngle(center: Position, point: Position): number {
-    return Math.atan2(point.y - center.y, point.x - center.x)
-  }
-
-  private isScaleHandle(controlPoint: ControlPointType): boolean {
-    return [
-      ControlPointType.TopLeft,
-      ControlPointType.TopCenter,
-      ControlPointType.TopRight,
-      ControlPointType.MiddleRight,
-      ControlPointType.BottomRight,
-      ControlPointType.BottomCenter,
-      ControlPointType.BottomLeft,
-      ControlPointType.MiddleLeft,
-    ].includes(controlPoint)
   }
 
   getCursorStyle(controlPoint: ControlPointType): string {

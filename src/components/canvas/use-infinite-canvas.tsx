@@ -86,7 +86,7 @@ export function useInfiniteCanvas({
         })
         for (let i = objectsRef.current.length - 1; i >= 0; i--) {
           const obj = objectsRef.current[i]
-          if (obj.containsPoint(point, controller.camera.zoom)) {
+          if (obj.containsPoint(point, controller.camera)) {
             return obj
           }
         }

@@ -1,4 +1,12 @@
-import { Bounds, ControlPointStyle, ControlPointType, Position } from "@/types"
+import { ScreenSpaceSystem } from "./core/screen-space"
+import {
+  Bounds,
+  Camera,
+  ControlPointStyle,
+  ControlPointType,
+  Position,
+  Transform,
+} from "@/types"
 
 export class ControlPointManager {
   private style: ControlPointStyle = {
@@ -9,22 +17,31 @@ export class ControlPointManager {
   }
 
   private rotationHandleOffset = 20
+  private screenSpace: ScreenSpaceSystem
 
   constructor(customStyle?: Partial<ControlPointStyle>) {
     this.style = { ...this.style, ...customStyle }
+    this.screenSpace = new ScreenSpaceSystem()
   }
 
   /**
-   * Gets ordered control points matching ControlPointType enum order
-   * @param bounds Object bounds
-   * @returns Array of control point positions in enum order
+   * Get control point positions in screen space
    */
-  getControlPoints(bounds: Bounds): Position[] {
-    const { left, right, top, bottom } = bounds
+  getControlPoints(
+    bounds: Bounds,
+    transform: Transform,
+    camera: Camera
+  ): Position[] {
+    const screenBounds = this.screenSpace.getScreenBounds(
+      bounds,
+      transform,
+      camera
+    )
+    const { left, right, top, bottom } = screenBounds
     const centerX = (left + right) / 2
     const centerY = (top + bottom) / 2
 
-    // Order MUST match ControlPointType enum
+    // Return points in order matching ControlPointType enum
     return [
       { x: left, y: top }, // TopLeft = 0
       { x: centerX, y: top }, // TopCenter = 1
@@ -37,28 +54,26 @@ export class ControlPointManager {
     ]
   }
 
+  /**
+   * Draw control points in screen space
+   */
   drawControlPoints(
     ctx: CanvasRenderingContext2D,
     bounds: Bounds,
-    objectScale: number,
-    cameraZoom: number,
-    isFlipped: boolean = false
+    transform: Transform,
+    camera: Camera
   ): void {
-    const points = this.getControlPoints(bounds)
-    const absScale = Math.abs(objectScale)
-
-    const effectiveScale = absScale * cameraZoom
+    const points = this.getControlPoints(bounds, transform, camera)
+    const screenSize = this.style.size / camera.zoom
 
     ctx.save()
     ctx.fillStyle = this.style.fillStyle
     ctx.strokeStyle = this.style.strokeStyle
-    ctx.lineWidth = this.style.lineWidth / effectiveScale
+    ctx.lineWidth = this.style.lineWidth / camera.zoom
 
-    const size = this.style.size / effectiveScale
-
-    points.forEach((p, index) => {
+    points.forEach((p) => {
       ctx.beginPath()
-      ctx.arc(isFlipped ? -p.x : p.x, p.y, size / 2, 0, 2 * Math.PI)
+      ctx.arc(p.x, p.y, screenSize / 2, 0, 2 * Math.PI)
       ctx.fill()
       ctx.stroke()
     })
@@ -66,126 +81,125 @@ export class ControlPointManager {
     ctx.restore()
   }
 
+  /**
+   * Draw rotation handle in screen space
+   */
   drawRotationHandle(
     ctx: CanvasRenderingContext2D,
     bounds: Bounds,
-    objectScale: number,
-    cameraZoom: number
+    transform: Transform,
+    camera: Camera
   ): void {
-    const effectiveScale = Math.abs(objectScale) * cameraZoom
-    const size = this.style.size / effectiveScale
-    const offset = this.rotationHandleOffset / effectiveScale
+    const screenBounds = this.screenSpace.getScreenBounds(
+      bounds,
+      transform,
+      camera
+    )
+    const screenSize = this.style.size / camera.zoom
+    const offset = this.rotationHandleOffset / camera.zoom
 
     ctx.save()
     ctx.strokeStyle = this.style.strokeStyle
     ctx.fillStyle = this.style.fillStyle
-    ctx.lineWidth = this.style.lineWidth / effectiveScale
+    ctx.lineWidth = this.style.lineWidth / camera.zoom
 
     // Draw connecting line
+    const centerX =
+      screenBounds.left + (screenBounds.right - screenBounds.left) / 2
     ctx.beginPath()
-    ctx.moveTo(0, bounds.top)
-    ctx.lineTo(0, bounds.top - offset)
+    ctx.moveTo(centerX, screenBounds.top)
+    ctx.lineTo(centerX, screenBounds.top - offset)
     ctx.stroke()
 
     // Draw handle circle
+    const handleY = screenBounds.top - offset
+
     ctx.beginPath()
-    ctx.arc(0, bounds.top - offset, size / 2, 0, 2 * Math.PI)
+    ctx.arc(centerX, handleY, screenSize / 2, 0, 2 * Math.PI)
     ctx.fill()
     ctx.stroke()
 
-    // Optional: Draw rotation indicator lines for better UX
-    const indicatorSize = size / 3
+    // Draw rotation indicator
+    const indicatorSize = screenSize / 3
     ctx.beginPath()
     ctx.arc(
-      0,
-      bounds.top - offset,
+      centerX,
+      handleY,
       indicatorSize,
-      -Math.PI * 0.75, // Start at 10:30 position
-      Math.PI * 0.75, // End at 1:30 position
+      -Math.PI * 0.75,
+      Math.PI * 0.75,
       false
     )
     ctx.stroke()
 
-    // Add small arrow at the end
-    const arrowSize = size / 4
+    // Add arrow
+    const arrowSize = screenSize / 4
     ctx.beginPath()
-    ctx.moveTo(arrowSize, bounds.top - offset)
-    ctx.lineTo(0, bounds.top - offset - arrowSize)
-    ctx.lineTo(-arrowSize, bounds.top - offset)
+    ctx.moveTo(centerX + arrowSize, handleY)
+    ctx.lineTo(centerX, handleY - arrowSize)
+    ctx.lineTo(centerX - arrowSize, handleY)
     ctx.stroke()
 
     ctx.restore()
   }
 
   /**
-   * Checks if a point is near a control point
-   * @param point Point to test
-   * @param bounds Object bounds
-   * @param objectScale Current scale
-   * @param transform Transform function to convert global to local coords
+   * Check if screen point hits a control point
    */
   getControlPointAtPosition(
-    point: Position,
+    screenPoint: Position,
     bounds: Bounds,
-    objectScale: number,
-    cameraZoom: number,
-    transform: (point: Position) => Position
+    transform: Transform,
+    camera: Camera
   ): ControlPointType {
-    console.log("ControlPointManager.getControlPointAtPosition", { cameraZoom })
-    const localPoint = transform(point)
-    const effectiveScale = Math.abs(objectScale) * cameraZoom
+    const threshold = (this.style.size * 2) / camera.zoom
 
     // Check rotation handle first
-    const rotationPoint = {
-      x: 0,
-      y: bounds.top - this.rotationHandleOffset / effectiveScale,
-    }
+    const screenBounds = this.screenSpace.getScreenBounds(
+      bounds,
+      transform,
+      camera
+    )
+    const handleX =
+      screenBounds.left + (screenBounds.right - screenBounds.left) / 2
+    const handleY = screenBounds.top - this.rotationHandleOffset / camera.zoom
 
-    if (this.isPointNearPosition(localPoint, rotationPoint, objectScale)) {
+    if (
+      this.isPointNearPosition(
+        screenPoint,
+        { x: handleX, y: handleY },
+        threshold
+      )
+    ) {
       return ControlPointType.Rotation
     }
 
-    // Get control points in enum order
-    const controlPoints = this.getControlPoints(bounds)
+    // Check other control points
+    const controlPoints = this.getControlPoints(bounds, transform, camera)
+    const hitPoint = controlPoints.findIndex((cp) =>
+      this.isPointNearPosition(screenPoint, cp, threshold)
+    )
 
-    // Larger hit area for easier selection
-    const threshold = (this.style.size * 2) / effectiveScale
-
-    // Debug info for hit testing
-    const hitTestResults = controlPoints.map((cp, index) => {
-      const distance = Math.sqrt(
-        Math.pow(localPoint.x - cp.x, 2) + Math.pow(localPoint.y - cp.y, 2)
-      )
-      return { index, distance, threshold, hit: distance < threshold }
-    })
-
-    console.debug("[ControlPointManager] Hit test results:", {
-      localPoint,
-      scale: effectiveScale,
-      threshold,
-      results: hitTestResults,
-    })
-
-    // Find closest point within threshold
-    const hit = hitTestResults
-      .filter((r) => r.hit)
-      .sort((a, b) => a.distance - b.distance)[0]
-
-    return hit ? hit.index : ControlPointType.None
+    return hitPoint >= 0 ? hitPoint : ControlPointType.None
   }
 
+  /**
+   * Test if a point is near a position in screen space
+   */
   private isPointNearPosition(
     point: Position,
     position: Position,
-    effectiveScale: number
+    threshold: number
   ): boolean {
-    const threshold = (this.style.size * 2) / Math.abs(effectiveScale)
     const distance = Math.sqrt(
       Math.pow(point.x - position.x, 2) + Math.pow(point.y - position.y, 2)
     )
     return distance < threshold
   }
 
+  /**
+   * Get appropriate cursor style for control point
+   */
   getCursorStyle(controlPoint: ControlPointType): string {
     switch (controlPoint) {
       case ControlPointType.TopLeft:
@@ -203,7 +217,7 @@ export class ControlPointManager {
       case ControlPointType.Rotation:
         return "grab"
       default:
-        return "move"
+        return "default"
     }
   }
 }

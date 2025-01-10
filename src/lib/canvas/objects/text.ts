@@ -59,7 +59,7 @@ export class TextObject extends BaseObject implements Transformable, Editable {
     }
   }
 
-  render(ctx: CanvasRenderingContext2D, cameraZoom: number): void {
+  render(ctx: CanvasRenderingContext2D, camera: Camera): void {
     ctx.save()
 
     ctx.translate(this.transform.position.x, this.transform.position.y)
@@ -94,15 +94,14 @@ export class TextObject extends BaseObject implements Transformable, Editable {
       this.controlPointManager.drawControlPoints(
         ctx,
         bounds,
-        this.transform.scale,
-        cameraZoom,
-        this.transform.isFlipped
+        this.transform,
+        camera
       )
       this.controlPointManager.drawRotationHandle(
         ctx,
         bounds,
-        this.transform.scale,
-        cameraZoom
+        this.transform,
+        camera
       )
     }
 

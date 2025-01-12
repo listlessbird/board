@@ -175,7 +175,7 @@ export class TextObject extends BaseObject implements Transformable, Editable {
     }
   }
 
-  containsPoint(point: Position, cameraZoom: number): boolean {
+  containsPoint(point: Position, camera: Camera): boolean {
     // const local = this.transformPointToLocal(point)
     // const bounds = this.getBounds()
 
@@ -192,7 +192,7 @@ export class TextObject extends BaseObject implements Transformable, Editable {
     //   local.y >= bounds.top &&
     //   local.y <= bounds.bottom
     // )
-    return super.containsPoint(point, cameraZoom)
+    return super.containsPoint(point, camera)
   }
 
   // transform point from global to local regardless of scale and rotation

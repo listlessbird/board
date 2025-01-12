@@ -126,19 +126,35 @@ export class TransformManager {
     if (!this.lastScreenPos) return
 
     // Calculate delta in screen space
-    const dx = (currentScreenPos.x - this.lastScreenPos.x) / camera.zoom
-    const dy = (currentScreenPos.y - this.lastScreenPos.y) / camera.zoom
+    // const dx = (currentScreenPos.x - this.lastScreenPos.x) / camera.zoom
+    // const dy = (currentScreenPos.y - this.lastScreenPos.y) / camera.zoom
 
-    // Update object position in world space
+    // // Update object position in world space
+    // object.transform.position.x += dx
+    // object.transform.position.y += dy
+
+    // console.debug("[TransformManager] Moving object:", {
+    //   dx,
+    //   dy,
+    //   objectId: object.id,
+    //   newPosition: object.transform.position,
+    // })
+
+    const currentWorldPos = {
+      x: (currentScreenPos.x - camera.x) / camera.zoom,
+      y: (currentScreenPos.y - camera.y) / camera.zoom,
+    }
+
+    const lastWorldPos = {
+      x: (this.lastScreenPos.x - camera.x) / camera.zoom,
+      y: (this.lastScreenPos.y - camera.y) / camera.zoom,
+    }
+
+    const dx = currentWorldPos.x - lastWorldPos.x
+    const dy = currentWorldPos.y - lastWorldPos.y
+
     object.transform.position.x += dx
     object.transform.position.y += dy
-
-    console.debug("[TransformManager] Moving object:", {
-      dx,
-      dy,
-      objectId: object.id,
-      newPosition: object.transform.position,
-    })
   }
 
   /**

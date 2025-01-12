@@ -79,27 +79,32 @@ export class InteractionManager {
       this.opts.onUpdate()
     }
   }
-
   private handleMouseDown(e: MouseEvent): void {
-    // Get screen position directly - no conversion needed
     const screenPosition = this.getMousePosition(e)
 
-    // Pass screen coordinates directly to hit testing
     const hitObject = this.opts.getObjectAtPoint(screenPosition)
 
     this.logger.debug("Mouse Down Event", {
       screenPosition,
       hitObject: hitObject?.id,
       selectedObjects: this.opts.selectionManager.getSelectedObjects(),
+      zoom: this.camera.zoom,
     })
 
     if (hitObject) {
-      const isSelected = hitObject.selected
-      // Pass screen coordinates to control point hit testing
+      let isSelected = this.opts.selectionManager.isSelected(hitObject)
+      // debugger
+
       const controlPoint = hitObject.getControlPointAtPosition(
         screenPosition,
         this.camera
       )
+
+      this.logger.debug("Control Point Detection", {
+        controlPoint,
+        isSelected,
+        objectId: hitObject.id,
+      })
 
       if (!isSelected) {
         const command = new SelectCommand(
@@ -110,7 +115,15 @@ export class InteractionManager {
         this.commandProcessor.execute(command)
       }
 
-      if (isSelected || controlPoint === ControlPointType.None) {
+      isSelected = this.opts.selectionManager.isSelected(hitObject)
+
+      this.logger.debug("Hit object eval 2", {
+        controlPoint,
+        isSelected,
+        objectId: hitObject.id,
+      })
+
+      if (isSelected && controlPoint !== ControlPointType.None) {
         this.logger.debug("Starting transform interaction", {
           controlPoint,
           objectId: hitObject.id,
@@ -121,7 +134,6 @@ export class InteractionManager {
         this.lastMousePosition = screenPosition
         this.activeControlPoint = controlPoint
 
-        // Pass screen coordinates to transform manager
         this.opts.transformManager.startDrag(
           screenPosition,
           controlPoint,
@@ -134,8 +146,38 @@ export class InteractionManager {
           this.opts.transformManager,
           this.opts.debug
         )
+
+        this.logger.debug("Transform state initialized", {
+          controlPoint: this.activeControlPoint,
+          isDragging: this.isDragging,
+          transformStarted: !!this.currentTransform,
+        })
+      } else {
+        this.logger.debug("Starting regular drag", {
+          objectId: hitObject.id,
+          isSelected: hitObject.selected,
+        })
+
+        this.isDragging = true
+        this.lastMousePosition = screenPosition
+        this.activeControlPoint = ControlPointType.None
+
+        this.opts.transformManager.startDrag(
+          screenPosition,
+          ControlPointType.None,
+          hitObject,
+          this.camera
+        )
+
+        this.currentTransform = new TransformCommand(
+          hitObject,
+          this.opts.transformManager,
+          this.opts.debug
+        )
       }
     } else {
+      this.logger.debug("No object hit, clearing selection")
+
       const command = new SelectCommand(
         null,
         this.opts.selectionManager,
@@ -146,7 +188,6 @@ export class InteractionManager {
 
     this.opts.onUpdate()
   }
-
   private handleMouseMove(e: MouseEvent): void {
     const screenPosition = this.getMousePosition(e)
 
@@ -154,13 +195,13 @@ export class InteractionManager {
       const selectedObject = this.opts.selectionManager.getSelectedObjects()[0]
 
       if (selectedObject) {
-        this.logger.debug("Dragging object", {
-          screenPosition,
-          lastPosition: this.lastMousePosition,
-          objectId: selectedObject.id,
-          controlPoint: this.activeControlPoint,
-          isDragging: this.isDragging,
-        })
+        // this.logger.debug("Dragging object", {
+        //   screenPosition,
+        //   lastPosition: this.lastMousePosition,
+        //   objectId: selectedObject.id,
+        //   controlPoint: this.activeControlPoint,
+        //   isDragging: this.isDragging,
+        // })
 
         // Pass screen coordinates to transform manager
         this.opts.transformManager.drag(
@@ -267,6 +308,13 @@ export class InteractionManager {
     return {
       x: (e.clientX - rect.left) * dpr,
       y: (e.clientY - rect.top) * dpr,
+    }
+  }
+
+  updateCamera(camera: Camera): void {
+    this.camera = camera
+    if (this.opts.debug) {
+      this.logger.debug("Updating camera", { camera })
     }
   }
 

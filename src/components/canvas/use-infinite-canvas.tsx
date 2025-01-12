@@ -114,6 +114,11 @@ export function useInfiniteCanvas({
         setObjects([...newObjects])
       }),
       controller.on("camera:change", (newCamera) => {
+        if (interactionManagerRef.current) {
+          // console.log("Updating camera to ", newCamera)
+          interactionManagerRef.current.updateCamera(newCamera)
+        }
+
         setCamera({ ...newCamera })
       }),
       controller.on("viewport:change", (newBounds) => {

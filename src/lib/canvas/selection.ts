@@ -1,5 +1,7 @@
 import { BaseObject } from "@/lib/canvas/objects/base"
 
+window._selectionInstances = []
+
 export class SelectionManager {
   private selectedObjects: Set<BaseObject>
   private listeners: Set<() => void> = new Set()
@@ -8,6 +10,16 @@ export class SelectionManager {
     console.log("[DEBUG] SelectionManager created")
     this.selectedObjects = new Set()
     this.listeners = new Set()
+    // @ts-ignore
+    window._selectionInstances.push(this)
+  }
+
+  isSelected(object: BaseObject): boolean {
+    console.log("[DEBUG] SelectionManager.isSelected", {
+      object,
+      all: this.selectedObjects,
+    })
+    return this.selectedObjects.has(object)
   }
 
   select(object: BaseObject): void {

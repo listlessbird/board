@@ -86,12 +86,12 @@ export class TransformManager {
       return
     }
 
-    console.debug("[TransformManager] Dragging:", {
-      controlPoint: this.activeControlPoint,
-      currentScreenPos,
-      lastScreenPos: this.lastScreenPos,
-      camera,
-    })
+    // console.debug("[TransformManager] Dragging:", {
+    //   controlPoint: this.activeControlPoint,
+    //   currentScreenPos,
+    //   lastScreenPos: this.lastScreenPos,
+    //   camera,
+    // })
 
     switch (this.activeControlPoint) {
       case ControlPointType.None:

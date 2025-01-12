@@ -232,20 +232,9 @@ export class TextObject extends BaseObject implements Transformable, Editable {
       camera,
     })
 
-    // Get the bounds in screen space by transforming them
-    const screenBounds = this.screenSpace.getScreenBounds(
-      localBounds,
-      this.transform,
-      camera
-    )
-
-    console.debug("TextObject.getControlPointAtPosition - Screen bounds:", {
-      screenBounds,
-    })
-
     return this.controlPointManager.getControlPointAtPosition(
       screenPoint,
-      screenBounds,
+      localBounds,
       this.transform,
       camera
     )

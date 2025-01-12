@@ -24,36 +24,13 @@ export class ControlPointManager {
     this.screenSpace = new ScreenSpaceSystem()
   }
 
-  /**
-   * Get control point positions in local object space
-   */
-  private getLocalControlPoints(bounds: Bounds): Position[] {
-    const { left, right, top, bottom } = bounds
-    const centerX = (left + right) / 2
-    const centerY = (top + bottom) / 2
-
-    // Return points in local space, matching ControlPointType enum order
-    return [
-      { x: left, y: top }, // TopLeft = 0
-      { x: centerX, y: top }, // TopCenter = 1
-      { x: right, y: top }, // TopRight = 2
-      { x: right, y: centerY }, // MiddleRight = 3
-      { x: right, y: bottom }, // BottomRight = 4
-      { x: centerX, y: bottom }, // BottomCenter = 5
-      { x: left, y: bottom }, // BottomLeft = 6
-      { x: left, y: centerY }, // MiddleLeft = 7
-    ]
-  }
-
-  /**
-   * Draw control points directly in object space
-   */
   drawControlPoints(
     ctx: CanvasRenderingContext2D,
     bounds: Bounds,
     transform: Transform,
     camera: Camera
   ): void {
+    // Draw in local space - this is correct
     const points = this.getLocalControlPoints(bounds)
     const screenSize = this.style.size / transform.scale
 
@@ -69,118 +46,93 @@ export class ControlPointManager {
     })
   }
 
-  /**
-   * Draw rotation handle in object space
-   */
   drawRotationHandle(
     ctx: CanvasRenderingContext2D,
     bounds: Bounds,
     transform: Transform,
     camera: Camera
   ): void {
-    const { left, right, top } = bounds
-    const screenSize = this.style.size / transform.scale
+    const centerX = (bounds.left + bounds.right) / 2
     const offset = this.rotationHandleOffset / transform.scale
-
-    const centerX = (left + right) / 2
+    const screenSize = this.style.size / transform.scale
 
     ctx.strokeStyle = this.style.strokeStyle
     ctx.fillStyle = this.style.fillStyle
     ctx.lineWidth = this.style.lineWidth / transform.scale
 
-    // Draw connecting line
+    // Draw line
     ctx.beginPath()
-    ctx.moveTo(centerX, top)
-    ctx.lineTo(centerX, top - offset)
+    ctx.moveTo(centerX, bounds.top)
+    ctx.lineTo(centerX, bounds.top - offset)
     ctx.stroke()
 
-    // Draw handle circle
-    const handleY = top - offset
-
+    // Draw handle
+    const handleY = bounds.top - offset
     ctx.beginPath()
     ctx.arc(centerX, handleY, screenSize / 2, 0, 2 * Math.PI)
     ctx.fill()
     ctx.stroke()
-
-    // Draw rotation indicator
-    const indicatorSize = screenSize / 3
-    ctx.beginPath()
-    ctx.arc(
-      centerX,
-      handleY,
-      indicatorSize,
-      -Math.PI * 0.75,
-      Math.PI * 0.75,
-      false
-    )
-    ctx.stroke()
-
-    // Add arrow
-    const arrowSize = screenSize / 4
-    ctx.beginPath()
-    ctx.moveTo(centerX + arrowSize, handleY)
-    ctx.lineTo(centerX, handleY - arrowSize)
-    ctx.lineTo(centerX - arrowSize, handleY)
-    ctx.stroke()
   }
 
-  /**
-   * Check if screen point hits a control point
-   */
   getControlPointAtPosition(
     screenPoint: Position,
     bounds: Bounds,
     transform: Transform,
     camera: Camera
   ): ControlPointType {
-    // Convert screen point to local object space
+    // Convert screen point to local object space before hit testing
     const localPoint = this.screenSpace.screenToLocalSpace(
       screenPoint,
       transform,
       camera
     )
-    const threshold = (this.style.size * 2) / transform.scale
 
-    // Check rotation handle first
+    // Hit test radius should scale with transform
+    const hitRadius = (this.style.size * 2) / (transform.scale * camera.zoom)
+
+    // Test rotation handle first
     const centerX = (bounds.left + bounds.right) / 2
     const handleY = bounds.top - this.rotationHandleOffset / transform.scale
 
-    if (
-      this.isPointNearPosition(
-        localPoint,
-        { x: centerX, y: handleY },
-        threshold
-      )
-    ) {
+    // Check rotation handle
+    if (this.getDistance(localPoint, { x: centerX, y: handleY }) <= hitRadius) {
       return ControlPointType.Rotation
     }
 
-    // Check other control points in local space
-    const controlPoints = this.getLocalControlPoints(bounds)
-    const hitPoint = controlPoints.findIndex((cp) =>
-      this.isPointNearPosition(localPoint, cp, threshold)
+    // Get control points in local space
+    const points = this.getLocalControlPoints(bounds)
+
+    // Find the first point within hit radius
+    const hitIndex = points.findIndex(
+      (p) => this.getDistance(localPoint, p) <= hitRadius
     )
 
-    return hitPoint >= 0 ? hitPoint : ControlPointType.None
+    return hitIndex >= 0 ? hitIndex : ControlPointType.None
   }
 
-  /**
-   * Test if a point is near a position in the same coordinate space
-   */
-  private isPointNearPosition(
-    point: Position,
-    position: Position,
-    threshold: number
-  ): boolean {
-    const distance = Math.sqrt(
-      Math.pow(point.x - position.x, 2) + Math.pow(point.y - position.y, 2)
-    )
-    return distance < threshold
+  private getLocalControlPoints(bounds: Bounds): Position[] {
+    const { left, right, top, bottom } = bounds
+    const centerX = (left + right) / 2
+    const centerY = (top + bottom) / 2
+
+    return [
+      { x: left, y: top }, // TopLeft
+      { x: centerX, y: top }, // TopCenter
+      { x: right, y: top }, // TopRight
+      { x: right, y: centerY }, // MiddleRight
+      { x: right, y: bottom }, // BottomRight
+      { x: centerX, y: bottom }, // BottomCenter
+      { x: left, y: bottom }, // BottomLeft
+      { x: left, y: centerY }, // MiddleLeft
+    ]
   }
 
-  /**
-   * Get appropriate cursor style for control point
-   */
+  private getDistance(p1: Position, p2: Position): number {
+    const dx = p2.x - p1.x
+    const dy = p2.y - p1.y
+    return Math.sqrt(dx * dx + dy * dy)
+  }
+
   getCursorStyle(controlPoint: ControlPointType): string {
     switch (controlPoint) {
       case ControlPointType.TopLeft:

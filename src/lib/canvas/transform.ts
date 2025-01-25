@@ -195,43 +195,129 @@ export class TransformManager {
   /**
    * Handle scaling in screen space
    */
+
   private handleScale(
     object: BaseObject,
     currentScreenPos: Position,
     camera: Camera
   ): void {
-    if (!this.initialScreenDistance || !this.initialTransform) return
+    if (
+      !this.initialScreenDistance ||
+      !this.initialTransform ||
+      !this.lastScreenPos
+    )
+      return
 
-    // Get center in screen space
-    const centerWorld = object.transform.position
-    const centerScreen = this.screenSpace.getTransformedPoint(
-      centerWorld,
+    const worldCenter = object.transform.position
+    const screenCenter = this.screenSpace.getTransformedPoint(
+      worldCenter,
       object.transform,
       camera
     )
 
-    // Calculate scale factor from screen distances
-    const currentDistance = this.screenSpace.getScreenDistance(
-      centerScreen,
-      currentScreenPos
-    )
-    // const scaleFactor = currentDistance / this.initialScreenDistance
+    // vectors from center
+    const initialVector = {
+      x: this.lastScreenPos.x - screenCenter.x,
+      y: this.lastScreenPos.y - screenCenter.y,
+    }
 
-    const isOuterControl = [
-      ControlPointType.TopLeft,
-      ControlPointType.TopRight,
-      ControlPointType.BottomLeft,
-      ControlPointType.BottomRight,
-    ].includes(this.activeControlPoint)
+    const dragVector = {
+      x: currentScreenPos.x - screenCenter.x,
+      y: currentScreenPos.y - screenCenter.y,
+    }
 
-    const scaleFactor = isOuterControl
-      ? currentDistance / this.initialScreenDistance
-      : this.initialScreenDistance / currentDistance
+    const DAMPING = 0.05
+    const PRECISION_THRESHOLD = 0.09
 
-    // Calculate and clamp new scale
-    let newScale = this.initialTransform.scale * scaleFactor
-    newScale = Math.max(0.1, Math.min(5, newScale))
-    object.transform.scale = newScale
+    // raw factors
+
+    let scaleFactorX = Math.abs(dragVector.x / initialVector.x) || 1
+    let scaleFactorY = Math.abs(dragVector.y / initialVector.y) || 1
+
+    if (Math.abs(1 - scaleFactorX) < PRECISION_THRESHOLD) scaleFactorX = 1
+
+    if (Math.abs(1 - scaleFactorY) < PRECISION_THRESHOLD) scaleFactorY = 1
+
+    const dampScaleFactor = (raw: number) => {
+      const delta = raw - 1
+      const dampedDelta = delta * DAMPING
+      return 1 + dampedDelta
+    }
+
+    scaleFactorX = dampScaleFactor(scaleFactorX)
+    scaleFactorY = dampScaleFactor(scaleFactorY)
+
+    let newScaleX = this.initialTransform.scale.x
+    let newScaleY = this.initialTransform.scale.y
+
+    switch (this.activeControlPoint) {
+      case ControlPointType.MiddleLeft:
+      case ControlPointType.MiddleRight: {
+        const x = dragVector.x - initialVector.x
+        const dir = Math.sign(x)
+        const mag = Math.abs(x) / camera.zoom
+        const scaleDelta = (mag / 100) * dir * DAMPING
+        newScaleX = this.initialTransform.scale.x * (1 - scaleDelta)
+        break
+      }
+
+      case ControlPointType.TopCenter:
+      case ControlPointType.BottomCenter: {
+        const y = dragVector.y - initialVector.y
+        const dir = Math.sign(y)
+        const mag = Math.abs(y) / camera.zoom
+        const scaleDelta = (mag / 100) * dir * DAMPING
+        newScaleY = this.initialTransform.scale.y * (1 - scaleDelta)
+        break
+      }
+
+      case ControlPointType.TopLeft:
+      case ControlPointType.TopRight:
+      case ControlPointType.BottomLeft:
+      case ControlPointType.BottomRight: {
+        const currentDistance = this.screenSpace.getScreenDistance(
+          screenCenter,
+          currentScreenPos
+        )
+
+        const dir = currentDistance > this.initialScreenDistance ? 1 : -1
+
+        const mag =
+          Math.abs(currentDistance - this.initialScreenDistance) / camera.zoom
+
+        const scaleDelta = (mag / 200) * dir * DAMPING
+
+        const scaleFactor = 1 + scaleDelta
+        newScaleX = this.initialTransform.scale.x * scaleFactor
+        newScaleY = this.initialTransform.scale.y * scaleFactor
+
+        break
+      }
+    }
+
+    const MIN_SCALE = 0.1
+    const MAX_SCALE = 5
+    const SMOOTH_CLAMP_RANGE = 0.2
+
+    const smoothClamp = (val: number, min: number, max: number) => {
+      if (val < min + SMOOTH_CLAMP_RANGE) {
+        const t = (val - min) / SMOOTH_CLAMP_RANGE
+        return min + t * t * SMOOTH_CLAMP_RANGE
+      }
+
+      if (val > max - SMOOTH_CLAMP_RANGE) {
+        const t = (max - val) / SMOOTH_CLAMP_RANGE
+        return max - t * t * SMOOTH_CLAMP_RANGE
+      }
+
+      return val
+    }
+
+    newScaleX = smoothClamp(newScaleX, MIN_SCALE, MAX_SCALE)
+    newScaleY = smoothClamp(newScaleY, MIN_SCALE, MAX_SCALE)
+
+    object.transform.scale.x = newScaleX
+    object.transform.scale.y = newScaleY
   }
 
   /**

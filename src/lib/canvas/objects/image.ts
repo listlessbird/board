@@ -31,8 +31,8 @@ export class ImageObject extends BaseObject {
     ctx.translate(this.transform.position.x, this.transform.position.y)
     ctx.rotate(this.transform.rotation)
     ctx.scale(
-      this.transform.scale * (this.transform.isFlipped ? -1 : 1),
-      this.transform.scale
+      this.transform.scale.x * (this.transform.isFlipped ? -1 : 1),
+      this.transform.scale.y
     )
 
     ctx.drawImage(
@@ -66,7 +66,7 @@ export class ImageObject extends BaseObject {
 
   private drawBoundingBox(ctx: CanvasRenderingContext2D, bounds: Bounds): void {
     ctx.strokeStyle = "#1a7fd4"
-    ctx.lineWidth = 1 / this.transform.scale
+    ctx.lineWidth = 1 / this.transform.scale.y
     ctx.beginPath()
     ctx.rect(
       bounds.left,
@@ -78,7 +78,7 @@ export class ImageObject extends BaseObject {
   }
 
   getBounds(): Bounds {
-    const padding = this.transform.scale * 10
+    const padding = this.transform.scale.y * 10
     const width = this.natWidth
     const height = this.natHeight
 

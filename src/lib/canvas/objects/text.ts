@@ -64,8 +64,8 @@ export class TextObject extends BaseObject implements Transformable, Editable {
     ctx.translate(this.transform.position.x, this.transform.position.y)
     ctx.rotate(this.transform.rotation)
     ctx.scale(
-      this.transform.scale * (this.transform.isFlipped ? -1 : 1),
-      this.transform.scale
+      this.transform.scale.x * (this.transform.isFlipped ? -1 : 1),
+      this.transform.scale.y
     )
 
     let lastEnd = 0
@@ -141,7 +141,7 @@ export class TextObject extends BaseObject implements Transformable, Editable {
 
   private drawBoundingBox(ctx: CanvasRenderingContext2D, bounds: Bounds): void {
     ctx.strokeStyle = "#1a7fd4"
-    ctx.lineWidth = 1 / this.transform.scale
+    ctx.lineWidth = 1 / this.transform.scale.y
     ctx.beginPath()
 
     ctx.rect(
@@ -404,7 +404,7 @@ export class TextObject extends BaseObject implements Transformable, Editable {
     if (this.showCursor) {
       const cursorX = -totalWidth / 2 + this.cursorPosition * charWidth
       ctx.strokeStyle = "#ff0000"
-      ctx.lineWidth = 1 / this.transform.scale
+      ctx.lineWidth = 1 / this.transform.scale.y
       ctx.beginPath()
       ctx.moveTo(cursorX, -cursorYOffset)
       ctx.lineTo(cursorX, cursorYOffset)

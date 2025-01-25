@@ -24,7 +24,8 @@ export abstract class BaseObject implements CanvasObject {
     this.transform = {
       position,
       rotation: 0,
-      scale: 1,
+      // scale: 1,
+      scale: { x: 1, y: 1 },
       isFlipped: false,
     }
     this.selected = false
@@ -110,7 +111,7 @@ export abstract class BaseObject implements CanvasObject {
     return {
       position: { ...this.transform.position },
       rotation: this.transform.rotation,
-      scale: this.transform.scale,
+      scale: { ...this.transform.scale },
       isFlipped: this.transform.isFlipped,
     }
   }
@@ -122,7 +123,7 @@ export abstract class BaseObject implements CanvasObject {
     this.transform = {
       position: { ...transform.position },
       rotation: transform.rotation,
-      scale: transform.scale,
+      scale: { ...transform.scale },
       isFlipped: transform.isFlipped,
     }
   }

@@ -41,8 +41,8 @@ export class ScreenSpaceSystem {
     const rx = dx * cos - dy * sin
     const ry = dx * sin + dy * cos
 
-    const sx = rx / (transform.scale * (transform.isFlipped ? -1 : 1))
-    const sy = ry / transform.scale
+    const sx = rx / (transform.scale.x * (transform.isFlipped ? -1 : 1))
+    const sy = ry / transform.scale.y
 
     return {
       x: sx * camera.zoom + camera.x,
@@ -113,8 +113,8 @@ export class ScreenSpaceSystem {
     const ry = dx * sin + dy * cos
 
     return {
-      x: rx / (transform.scale * (transform.isFlipped ? -1 : 1)),
-      y: ry / transform.scale,
+      x: rx / (transform.scale.x * (transform.isFlipped ? -1 : 1)),
+      y: ry / transform.scale.y,
     }
   }
 }

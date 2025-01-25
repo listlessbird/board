@@ -32,11 +32,11 @@ export class ControlPointManager {
   ): void {
     // Draw in local space - this is correct
     const points = this.getLocalControlPoints(bounds)
-    const screenSize = this.style.size / transform.scale
+    const screenSize = this.style.size / transform.scale.x
 
     ctx.fillStyle = this.style.fillStyle
     ctx.strokeStyle = this.style.strokeStyle
-    ctx.lineWidth = this.style.lineWidth / transform.scale
+    ctx.lineWidth = this.style.lineWidth / transform.scale.y
 
     points.forEach((p) => {
       ctx.beginPath()
@@ -53,12 +53,12 @@ export class ControlPointManager {
     camera: Camera
   ): void {
     const centerX = (bounds.left + bounds.right) / 2
-    const offset = this.rotationHandleOffset / transform.scale
-    const screenSize = this.style.size / transform.scale
+    const offset = this.rotationHandleOffset / transform.scale.y
+    const screenSize = this.style.size / transform.scale.x
 
     ctx.strokeStyle = this.style.strokeStyle
     ctx.fillStyle = this.style.fillStyle
-    ctx.lineWidth = this.style.lineWidth / transform.scale
+    ctx.lineWidth = this.style.lineWidth / transform.scale.y
 
     // Draw line
     ctx.beginPath()
@@ -88,11 +88,11 @@ export class ControlPointManager {
     )
 
     // Hit test radius should scale with transform
-    const hitRadius = (this.style.size * 2) / (transform.scale * camera.zoom)
+    const hitRadius = (this.style.size * 2) / (transform.scale.y * camera.zoom)
 
     // Test rotation handle first
     const centerX = (bounds.left + bounds.right) / 2
-    const handleY = bounds.top - this.rotationHandleOffset / transform.scale
+    const handleY = bounds.top - this.rotationHandleOffset / transform.scale.y
 
     // Check rotation handle
     if (this.getDistance(localPoint, { x: centerX, y: handleY }) <= hitRadius) {

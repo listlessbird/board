@@ -81,7 +81,11 @@ export type CanvasEvents = {
 export interface Transform {
   position: Position
   rotation: number
-  scale: number
+  // scale: number
+  scale: {
+    x: number
+    y: number
+  }
   isFlipped: boolean
 }
 

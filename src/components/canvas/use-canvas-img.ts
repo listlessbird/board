@@ -1,17 +1,20 @@
 import { useImageUpload } from "@/components/canvas/use-img-upload"
-import { BaseObject } from "@/lib/canvas/objects/base"
+import { CanvasController } from "@/lib/canvas/core/canvas-controller"
 import { ImageObject } from "@/lib/canvas/objects/image"
-import { Dispatch, SetStateAction, useCallback, useEffect } from "react"
+import { Camera } from "@/types"
+import { useCallback, useEffect } from "react"
 
+// useCanvasImg.ts
 interface UseCanvasImgOptions {
   canvas: React.RefObject<HTMLCanvasElement>
-  objects: BaseObject[]
-  setObjects: Dispatch<SetStateAction<BaseObject[]>>
+  controller: CanvasController | null
+  camera: Camera | null
 }
+
 export function useCanvasImg({
   canvas,
-  objects,
-  setObjects,
+  controller,
+  camera,
 }: UseCanvasImgOptions) {
   const {
     handlePaste,
@@ -22,30 +25,45 @@ export function useCanvasImg({
 
   const addImageObject = useCallback(
     (imgData: string) => {
-      if (!canvas.current) return
+      if (!canvas.current || !controller || !camera) return
 
-      const offset = 20 * (objects.length % 5)
+      // Convert center of viewport to world coordinates
+      const viewportCenter = {
+        x: canvas.current.width / 2,
+        y: canvas.current.height / 2,
+      }
+
+      const worldPos = controller.coordinateSystem.screenToWorld(
+        viewportCenter,
+        camera
+      )
+
+      // Create image at world position with small random offset
+      const offset = {
+        x: (Math.random() - 0.5) * 100,
+        y: (Math.random() - 0.5) * 100,
+      }
 
       const newImg = new ImageObject(
         imgData,
         {
-          x: canvas.current.width / 2 + offset,
-          y: canvas.current.height / 2 + offset,
+          x: worldPos.x + offset.x,
+          y: worldPos.y + offset.y,
         },
         () => {
-          setObjects((prev) => [...prev])
+          // Trigger re-render only after image loads
+          controller.render()
         }
       )
 
-      setObjects([...objects, newImg])
+      controller.addObject(newImg)
     },
-    [canvas, objects, setObjects]
+    [canvas, controller, camera]
   )
 
   const handleGlobalPaste = useCallback(
     async (e: ClipboardEvent) => {
       try {
-        console.log("global paste ev: ", e)
         const images = await handlePaste(e)
         images.forEach(addImageObject)
       } catch (error) {
@@ -74,5 +92,7 @@ export function useCanvasImg({
     addImageObject,
     handleGlobalPaste,
     handleDrop,
+    error,
+    isLoading,
   }
 }

@@ -70,10 +70,10 @@ export function Canvas() {
     setObjectsCallback(updateCanvasObjects)
   }, [updateCanvasObjects, setObjectsCallback])
 
-  const { handleDrop } = useCanvasImg({
-    canvas: canvasRef,
-    objects,
-    setObjects: updateCanvasObjects,
+  const { handleDrop, error: imageError } = useCanvasImg({
+    canvas: canvasRef!,
+    controller,
+    camera: camera!,
   })
 
   useEffect(() => {
@@ -198,6 +198,12 @@ export function Canvas() {
           />
         </div>
       </div>
+
+      {imageError && (
+        <div className="fixed bottom-4 right-4 bg-red-500 text-white p-2 rounded">
+          {imageError}
+        </div>
+      )}
     </div>
   )
 }

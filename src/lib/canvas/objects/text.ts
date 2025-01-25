@@ -12,7 +12,6 @@ import {
   Transform,
   Transformable,
 } from "@/types"
-import { Style } from "util"
 
 export class TextObject extends BaseObject implements Transformable, Editable {
   private styleRanges: StyleRange[] = []

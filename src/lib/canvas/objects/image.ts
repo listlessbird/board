@@ -1,6 +1,6 @@
 import { ControlPointManager } from "@/lib/canvas/control-points"
 import { BaseObject } from "@/lib/canvas/objects/base"
-import { Bounds, ControlPointType, Position } from "@/types"
+import { Bounds, Camera, ControlPointType, Position } from "@/types"
 
 export class ImageObject extends BaseObject {
   private image: HTMLImageElement
@@ -24,7 +24,7 @@ export class ImageObject extends BaseObject {
     this.image.src = source
   }
 
-  render(ctx: CanvasRenderingContext2D): void {
+  render(ctx: CanvasRenderingContext2D, camera: Camera): void {
     if (!this.isLoaded) return
 
     ctx.save()
@@ -49,14 +49,15 @@ export class ImageObject extends BaseObject {
       this.controlPointManager.drawControlPoints(
         ctx,
         bounds,
-        this.transform.scale,
-        this.transform.isFlipped
+        this.transform,
+        camera
       )
 
       this.controlPointManager.drawRotationHandle(
         ctx,
         bounds,
-        this.transform.scale
+        this.transform,
+        camera
       )
     }
 
@@ -89,7 +90,7 @@ export class ImageObject extends BaseObject {
     }
   }
 
-  containsPoint(point: Position, cameraZoom: number): boolean {
+  containsPoint(point: Position, camera: Camera): boolean {
     // const local = this.transformPointToLocal(point)
     // const bounds = this.getBounds()
 
@@ -100,33 +101,18 @@ export class ImageObject extends BaseObject {
     //   local.y <= bounds.bottom
     // )
 
-    return super.containsPoint(point, cameraZoom)
+    return super.containsPoint(point, camera)
   }
 
-  transformPointToLocal(point: Position): Position {
-    const dx = point.x - this.transform.position.x
-    const dy = point.y - this.transform.position.y
-
-    const cos = Math.cos(-this.transform.rotation)
-    const sin = Math.sin(-this.transform.rotation)
-    const rx = dx * cos - dy * sin
-    const ry = dx * sin + dy * cos
-
-    const scaleX = this.transform.scale * (this.transform.isFlipped ? -1 : 1)
-    const scaleY = this.transform.scale
-
-    return {
-      x: rx / scaleX,
-      y: ry / scaleY,
-    }
-  }
-
-  getControlPointAtPosition(point: Position): ControlPointType {
+  getControlPointAtPosition(
+    screenPoint: Position,
+    camera: Camera
+  ): ControlPointType {
     return this.controlPointManager.getControlPointAtPosition(
-      point,
+      screenPoint,
       this.getBounds(),
-      this.transform.scale,
-      (p) => this.transformPointToLocal(p)
+      this.transform,
+      camera
     )
   }
 }

@@ -211,6 +211,28 @@ export class InteractionManager {
         )
         this.opts.onUpdate()
       }
+    } else {
+      const selectedObject = this.opts.selectionManager.getSelectedObjects()[0]
+      if (selectedObject) {
+        const controlPoint = selectedObject.getControlPointAtPosition(
+          screenPosition,
+          this.camera
+        )
+        if (controlPoint !== ControlPointType.None) {
+          const cursorStyle =
+            this.opts.transformManager.getCursorStyle(controlPoint)
+          this.opts.canvas.style.cursor = cursorStyle
+          return
+        }
+      }
+
+      // If no control point hit, check for object hit
+      const worldPos = this.coordinateSystem.screenToWorld(
+        screenPosition,
+        this.camera
+      )
+      const hitObject = this.opts.getObjectAtPoint(worldPos)
+      this.opts.canvas.style.cursor = hitObject ? "move" : "default"
     }
 
     this.lastMousePosition = screenPosition

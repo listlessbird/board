@@ -215,13 +215,18 @@ export class TransformManager {
       centerScreen,
       currentScreenPos
     )
-    const scaleFactor = currentDistance / this.initialScreenDistance
+    // const scaleFactor = currentDistance / this.initialScreenDistance
 
-    console.debug("[TransformManager] Scaling:", {
-      initialDistance: this.initialScreenDistance,
-      currentDistance,
-      scaleFactor,
-    })
+    const isOuterControl = [
+      ControlPointType.TopLeft,
+      ControlPointType.TopRight,
+      ControlPointType.BottomLeft,
+      ControlPointType.BottomRight,
+    ].includes(this.activeControlPoint)
+
+    const scaleFactor = isOuterControl
+      ? currentDistance / this.initialScreenDistance
+      : this.initialScreenDistance / currentDistance
 
     // Calculate and clamp new scale
     let newScale = this.initialTransform.scale * scaleFactor

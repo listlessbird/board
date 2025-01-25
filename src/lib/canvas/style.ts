@@ -18,7 +18,15 @@ const defaultTextStyle = {
   textSelectionColor: "#1a7fd4",
 }
 
+const defaultControlPointStyle = {
+  controlPointSize: 10,
+  fillStyle: "#ffffff",
+  strokeStyle: "#1a7fd4",
+  lineWidth: 1,
+}
+
 export const CANVAS_STYLE = {
   ...defaultGridStyles,
   ...defaultTextStyle,
+  controlPoint: defaultControlPointStyle,
 }

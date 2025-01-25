@@ -7,13 +7,14 @@ import {
   Position,
   Transform,
 } from "@/types"
+import { CANVAS_STYLE } from "@/lib/canvas/style"
 
 export class ControlPointManager {
   private style: ControlPointStyle = {
-    size: 10,
-    fillStyle: "#ffffff",
-    strokeStyle: "#1a7fd4",
-    lineWidth: 1,
+    size: CANVAS_STYLE.controlPoint.controlPointSize,
+    fillStyle: CANVAS_STYLE.controlPoint.fillStyle,
+    strokeStyle: CANVAS_STYLE.controlPoint.strokeStyle,
+    lineWidth: CANVAS_STYLE.controlPoint.lineWidth,
   }
 
   private rotationHandleOffset = 20
@@ -60,13 +61,11 @@ export class ControlPointManager {
     ctx.fillStyle = this.style.fillStyle
     ctx.lineWidth = this.style.lineWidth / transform.scale.y
 
-    // Draw line
     ctx.beginPath()
     ctx.moveTo(centerX, bounds.top)
     ctx.lineTo(centerX, bounds.top - offset)
     ctx.stroke()
 
-    // Draw handle
     const handleY = bounds.top - offset
     ctx.beginPath()
     ctx.arc(centerX, handleY, screenSize / 2, 0, 2 * Math.PI)

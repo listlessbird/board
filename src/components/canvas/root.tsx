@@ -32,6 +32,7 @@ export function Canvas() {
     selectionManager,
     transformManager,
     addObject,
+    camera,
   } = useInfiniteCanvas({
     canvasRef,
     debug: isDebug,
@@ -54,16 +55,20 @@ export function Canvas() {
 
   const selectedObject = useCanvasSelection(selectionManager!)
 
-  const { undo, redo, deleteObject } = useCanvasCommands({
-    canvas: canvasRef,
+  const { undo, redo, deleteObject, setObjectsCallback } = useCanvasCommands({
     objects,
     selectionManager: selectionManager!,
-    transformManager: transformManager!,
+    interactionManager: interactionManager!,
     onUpdate: () => {
       controller?.render()
     },
+    camera: camera!,
     debug: isDebug,
   })
+
+  useEffect(() => {
+    setObjectsCallback(updateCanvasObjects)
+  }, [updateCanvasObjects, setObjectsCallback])
 
   const { handleDrop } = useCanvasImg({
     canvas: canvasRef,
@@ -139,8 +144,13 @@ export function Canvas() {
 
       if (e.key === KeyboardShortcuts.DELETE && selectedObject) {
         e.preventDefault()
-        deleteObject(selectedObject)
-        selectionManager.clearSelection()
+
+        if (selectionManager) {
+          deleteObject(selectedObject)
+          selectionManager.clearSelection()
+        } else {
+          console.error("No selection manager")
+        }
         return
       }
     }

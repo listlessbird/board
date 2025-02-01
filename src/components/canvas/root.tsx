@@ -16,6 +16,7 @@ import {
 import { toolbarRegistry } from "@/lib/canvas/toolbar/toolbar-registry"
 import { Toolbar } from "@/components/canvas/toolbar"
 import { KeyboardShortcuts } from "@/lib/constants"
+import { AddCommand } from "@/lib/canvas/commands/add-command"
 
 export function Canvas() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -24,6 +25,7 @@ export function Canvas() {
   const [isDebug] = useState(() => process.env.NODE_ENV === "development")
   const [objects, setObjects] = useState<BaseObject[]>([])
   const [actionsReady, setActionsReady] = useState(false)
+  const copiedObjectRef = useRef<BaseObject | null>(null)
 
   const {
     setObjects: updateCanvasObjects,
@@ -153,11 +155,69 @@ export function Canvas() {
         }
         return
       }
+      // copy
+      if (e.key === KeyboardShortcuts.COPY && (e.ctrlKey || e.metaKey)) {
+        e.preventDefault()
+        if (selectedObject) {
+          copiedObjectRef.current = selectedObject.clone()
+        }
+      }
+
+      // paste
+      if (e.key === KeyboardShortcuts.PASTE && (e.ctrlKey || e.metaKey)) {
+        e.preventDefault()
+        if (copiedObjectRef.current && interactionManager && controller) {
+          const newObj = copiedObjectRef.current.clone()
+
+          if (containerRef.current) {
+            const rect = containerRef.current.getBoundingClientRect()
+            const dpr = window.devicePixelRatio || 1
+            const viewPortCenter = {
+              x: (rect.width / 2) * dpr,
+              y: (rect.height / 2) * dpr,
+            }
+
+            const worldPos = controller.coordinateSystem.screenToWorld(
+              viewPortCenter,
+              camera!
+            )
+
+            const offset = {
+              x: (Math.random() - 0.5) * 40,
+              y: (Math.random() - 0.5) * 40,
+            }
+
+            newObj.transform.position.x = worldPos.x + offset.x
+            newObj.transform.position.y = worldPos.y + offset.y
+          }
+
+          const cmd = new AddCommand(
+            newObj,
+            () => controller.getObjects(),
+            (newObjects) => controller.setObjects(newObjects),
+            isDebug
+          )
+
+          interactionManager.commandProcessor.execute(cmd)
+          selectionManager?.select(newObj)
+          controller.render()
+        }
+      }
     }
 
     window.addEventListener("keydown", handleKeyboard)
     return () => window.removeEventListener("keydown", handleKeyboard)
-  }, [undo, redo, selectedObject, deleteObject])
+  }, [
+    undo,
+    redo,
+    selectedObject,
+    deleteObject,
+    interactionManager,
+    controller,
+    camera,
+    selectionManager,
+    isDebug,
+  ])
 
   useEffect(() => {
     if (!containerRef.current || !canvasRef.current) return

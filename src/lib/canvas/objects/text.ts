@@ -458,4 +458,16 @@ export class TextObject extends BaseObject implements Transformable, Editable {
       }
     }
   }
+
+  clone(): TextObject {
+    const cloned = new TextObject(
+      this.content,
+      this.transform.position,
+      this.style
+    )
+    cloned.setTransform({ ...this.transform })
+    cloned.styleRanges = this.styleRanges.map((range) => ({ ...range }))
+    cloned.setStyle({ ...this.style })
+    return cloned
+  }
 }

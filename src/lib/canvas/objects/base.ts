@@ -145,4 +145,6 @@ export abstract class BaseObject implements CanvasObject {
       camera
     )
   }
+
+  abstract clone(): BaseObject
 }

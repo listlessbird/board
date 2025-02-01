@@ -115,4 +115,15 @@ export class ImageObject extends BaseObject {
       camera
     )
   }
+
+  clone(): ImageObject {
+    const cloned = new ImageObject(this.image.src, {
+      ...this.transform.position,
+    })
+    cloned.setTransform({ ...this.transform })
+    cloned.isLoaded = this.isLoaded
+    cloned.natWidth = this.natWidth
+    cloned.natHeight = this.natHeight
+    return cloned
+  }
 }

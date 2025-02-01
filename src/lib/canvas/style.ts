@@ -25,8 +25,15 @@ const defaultControlPointStyle = {
   lineWidth: 1,
 }
 
+const defaultCropOverlayStyle = {
+  fillStyle: "rgba(0, 0, 0, 0.5)",
+  strokeStyle: "#1a7fd4",
+  lineWidth: 1,
+}
+
 export const CANVAS_STYLE = {
   ...defaultGridStyles,
   ...defaultTextStyle,
+  cropOverlay: defaultCropOverlayStyle,
   controlPoint: defaultControlPointStyle,
 }

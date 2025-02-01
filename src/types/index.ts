@@ -242,3 +242,57 @@ export interface ZoomAnimation {
   duration: number
   worldPos: Position
 }
+
+export type CropMode = "rectangular" | "circular"
+
+export interface CropBoundsMap {
+  rectangular: {
+    x: number
+    y: number
+    width: number
+    height: number
+  }
+  circular: {
+    centerX: number
+    centerY: number
+    radius: number
+  }
+}
+
+export type CropBounds<T extends CropMode> = CropBoundsMap[T]
+
+export interface CropState<T extends CropMode> {
+  mode: T
+  bounds: CropBounds<T>
+  aspectRatio?: number
+  isDragging: boolean
+  activeHandle: CropHandle | null
+  initialBounds?: CropBounds<T>
+}
+
+export type CropHandle =
+  | "top"
+  | "right"
+  | "bottom"
+  | "left"
+  | "topLeft"
+  | "topRight"
+  | "bottomRight"
+  | "bottomLeft"
+  | "move"
+  | "radius"
+
+export interface CropperOptions {
+  minWidth?: number
+  minHeight?: number
+  maxWidth?: number
+  maxHeight?: number
+  aspectRatio?: number
+  initialMode?: CropMode
+}
+
+export interface CropResult<T extends CropMode> {
+  mode: T
+  bounds: CropBounds<T>
+  aspectRatio?: number
+}

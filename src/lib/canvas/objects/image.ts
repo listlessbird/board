@@ -115,6 +115,21 @@ export class ImageObject extends BaseObject {
       camera
     )
   }
+  // get image data as base64
+  getImageData(): string {
+    const canvas = document.createElement("canvas")
+    canvas.width = this.natWidth
+    canvas.height = this.natHeight
+    const ctx = canvas.getContext("2d")!
+    ctx.drawImage(this.image, 0, 0)
+    const imgData = canvas.toDataURL()
+    canvas.remove()
+    return imgData
+  }
+
+  getOriginalSize(): { width: number; height: number } {
+    return { width: this.natWidth, height: this.natHeight }
+  }
 
   clone(): ImageObject {
     const cloned = new ImageObject(this.image.src, {

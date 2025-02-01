@@ -4,12 +4,14 @@ import {
   CropBounds,
   CropHandle,
   CropMode,
+  CropResult,
   CropState,
   Position,
 } from "@/types"
 
-export class ImageCroppper<T extends CropMode> {
-  private cropState: CropState<T>
+export class ImageCroppper {
+  private cropState: CropState<"circular"> | CropState<"rectangular"> | null =
+    null
   private image: HTMLImageElement
   private minSize = 20
 
@@ -17,7 +19,7 @@ export class ImageCroppper<T extends CropMode> {
     this.image = image
   }
 
-  startCrop(mode: T, aspectRatio?: number) {
+  startCrop<T extends CropMode>(mode: T, aspectRatio?: number) {
     if (!mode) {
       throw new Error("Crop mode is required")
     }
@@ -78,6 +80,8 @@ export class ImageCroppper<T extends CropMode> {
     camera: Camera,
     lastPoint: Position
   ): void {
+    if (!this.cropState) return
+
     if (!this.cropState.isDragging || !this.cropState.initialBounds) return
 
     const dx = localPoint.x - lastPoint.x
@@ -183,6 +187,8 @@ export class ImageCroppper<T extends CropMode> {
   }
 
   private drawCropHandles(ctx: CanvasRenderingContext2D, camera: Camera) {
+    if (!this.cropState) return
+
     const handleSize = 10 / camera.zoom
 
     ctx.fillStyle = CANVAS_STYLE.controlPoint.fillStyle
@@ -234,4 +240,151 @@ export class ImageCroppper<T extends CropMode> {
   }
 
   //   TODO: impl handleRectangularCrop, handleCircularCrop
+
+  private handleRectangularCrop(dx: number, dy: number) {
+    if (!this.cropState || !this.cropState.initialBounds) return
+
+    const cropState = this.cropState as CropState<"rectangular">
+    const initial = cropState.initialBounds as CropBounds<"rectangular">
+    const handle = cropState.activeHandle
+    const ar = cropState.aspectRatio
+    const bounds = cropState.bounds
+    const newBounds: CropBounds<"rectangular"> = { ...bounds }
+
+    switch (handle) {
+      case "move":
+        newBounds.x = Math.max(
+          0,
+          Math.min(initial.x + dx, this.image.naturalWidth - bounds.width)
+        )
+        newBounds.y = Math.max(
+          0,
+          Math.min(initial.y + dy, this.image.naturalHeight - bounds.height)
+        )
+        break
+      case "top":
+      case "topLeft":
+      case "topRight":
+        newBounds.y = Math.max(
+          0,
+          Math.min(initial.y + dy, initial.y + initial.height - this.minSize)
+        )
+        newBounds.height = initial.height - (newBounds.y - initial.y)
+        if (ar) {
+          newBounds.width = newBounds.height * ar
+        }
+        break
+      case "bottom":
+      case "bottomLeft":
+      case "bottomRight":
+        newBounds.height = Math.max(
+          this.minSize,
+          Math.min(initial.height + dy, this.image.naturalHeight - initial.y)
+        )
+        if (ar) {
+          newBounds.width = newBounds.height * ar
+        }
+        break
+      case "left":
+      case "right":
+        newBounds.width = Math.max(
+          this.minSize,
+          Math.min(initial.width + dx, this.image.naturalWidth - initial.x)
+        )
+        if (ar) {
+          newBounds.height = newBounds.width / ar
+        }
+        break
+    }
+
+    this.cropState = {
+      ...cropState,
+      bounds: newBounds,
+    } as CropState<"rectangular">
+  }
+
+  private handleCircularCrop(dx: number, dy: number) {
+    if (!this.cropState || !this.cropState.initialBounds) return
+
+    const cropState = this.cropState as CropState<"circular">
+    const initial = cropState.initialBounds as CropBounds<"circular">
+    const handle = cropState.activeHandle
+    const bounds = cropState.bounds
+    const newBounds: CropBounds<"circular"> = { ...bounds }
+
+    switch (handle) {
+      case "move":
+        newBounds.centerX = Math.max(
+          bounds.radius,
+          Math.min(
+            initial.centerX + dx,
+            this.image.naturalWidth - bounds.radius
+          )
+        )
+        newBounds.centerY = Math.max(
+          bounds.radius,
+          Math.min(
+            initial.centerY + dy,
+            this.image.naturalHeight - bounds.radius
+          )
+        )
+        break
+      case "radius":
+        const dx2 = dx * dx
+        const dy2 = dy * dy
+
+        const delta = Math.sqrt(dx2 + dy2) * (dx > 0 ? 1 : -1)
+
+        const maxR = Math.min(
+          initial.centerX,
+          initial.centerY,
+          this.image.naturalWidth - initial.centerX,
+          this.image.naturalHeight - initial.centerY
+        )
+
+        const newR = Math.max(
+          this.minSize,
+          Math.min(initial.radius + delta, maxR)
+        )
+
+        newBounds.radius = newR
+        break
+    }
+
+    this.cropState = {
+      ...cropState,
+      bounds: newBounds,
+    } as CropState<"circular">
+  }
+
+  handleMouseUp() {
+    if (!this.cropState) return
+
+    this.cropState.isDragging = false
+    this.cropState.activeHandle = null
+    this.cropState.initialBounds = undefined
+  }
+
+  getCropState(): typeof this.cropState {
+    return this.cropState
+  }
+
+  applyCrop<T extends CropMode>(cb: (result: CropResult<T>) => void): void {
+    if (!this.cropState) return
+
+    // @ts-expect-error fuck off
+    const resullt: CropResult<T> = {
+      mode: this.cropState.mode as T,
+      bounds: this.cropState.bounds,
+      aspectRatio: this.cropState.aspectRatio,
+    }
+
+    cb(resullt)
+
+    this.cropState = null
+  }
+
+  cancelCrop(): void {
+    this.cropState = null
+  }
 }

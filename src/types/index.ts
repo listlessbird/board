@@ -261,7 +261,7 @@ export interface CropBoundsMap {
 
 export type CropBounds<T extends CropMode> = CropBoundsMap[T]
 
-export interface CropState<T extends CropMode> {
+export type CropState<T extends CropMode> = {
   mode: T
   bounds: CropBounds<T>
   aspectRatio?: number

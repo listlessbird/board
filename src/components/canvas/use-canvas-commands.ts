@@ -1,6 +1,8 @@
+import { CropCommand } from "@/lib/canvas/commands/crop-command"
 import { DeleteCommand } from "@/lib/canvas/commands/delete-object-command"
 import { InteractionManager } from "@/lib/canvas/interaction-manager"
 import { BaseObject } from "@/lib/canvas/objects/base"
+import { ImageObject } from "@/lib/canvas/objects/image"
 import { SelectionManager } from "@/lib/canvas/selection"
 import { TransformManager } from "@/lib/canvas/transform"
 import { Camera, InteractionCommand, Position } from "@/types"
@@ -54,6 +56,17 @@ export function useCanvasCommands({
     [objects, selectionManager, onUpdate, debug]
   )
 
+  const handleApplyCrop = useCallback(
+    (imageObject: ImageObject) => {
+      const cropCommand = new CropCommand(imageObject, debug)
+
+      imageObject.applyCrop()
+
+      interactionManager.commandProcessor.execute(cropCommand)
+    },
+    [interactionManager, debug]
+  )
+
   useEffect(() => {
     objectsRef.current = objects
     onUpdateRef.current = onUpdate
@@ -66,5 +79,6 @@ export function useCanvasCommands({
     setObjectsCallback: (cb: (objects: BaseObject[]) => void) => {
       setObjectsCallback.current = cb
     },
+    handleApplyCrop,
   }
 }

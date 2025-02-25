@@ -9,7 +9,7 @@ import {
   Position,
 } from "@/types"
 
-export class ImageCroppper {
+export class ImageCropper {
   private cropState: CropState<"circular"> | CropState<"rectangular"> | null =
     null
   private image: HTMLImageElement
@@ -42,7 +42,7 @@ export class ImageCroppper {
         } as CropState<T>["bounds"],
         isDragging: false,
         activeHandle: null,
-      }
+      } as CropState<"rectangular">
     } else if (mode === "circular") {
       const r = Math.min(imgWidth, imgHeight) * 0.4
 
@@ -55,7 +55,7 @@ export class ImageCroppper {
         } as CropState<T>["bounds"],
         isDragging: false,
         activeHandle: null,
-      }
+      } as CropState<"circular">
     }
   }
 
@@ -373,18 +373,37 @@ export class ImageCroppper {
     if (!this.cropState) return
 
     // @ts-expect-error fuck off
-    const resullt: CropResult<T> = {
+    const result: CropResult<T> = {
       mode: this.cropState.mode as T,
       bounds: this.cropState.bounds,
       aspectRatio: this.cropState.aspectRatio,
     }
 
-    cb(resullt)
+    cb(result)
 
     this.cropState = null
   }
 
   cancelCrop(): void {
     this.cropState = null
+  }
+
+  getCursor(handle: CropHandle | null): string {
+    if (!handle) return "default"
+
+    const cursors: Record<CropHandle, string> = {
+      move: "move",
+      radius: "nwse-resize",
+      topLeft: "nwse-resize",
+      top: "ns-resize",
+      topRight: "nesw-resize",
+      right: "ew-resize",
+      bottomRight: "nwse-resize",
+      bottom: "s-resize",
+      bottomLeft: "nesw-resize",
+      left: "w-resize",
+    }
+
+    return cursors[handle] || "default"
   }
 }

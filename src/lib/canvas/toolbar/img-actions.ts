@@ -1,7 +1,14 @@
 import { BaseObject } from "@/lib/canvas/objects/base"
 import { ImageObject } from "@/lib/canvas/objects/image"
 import { toolbarRegistry } from "@/lib/canvas/toolbar/toolbar-registry"
-import { FlipHorizontal, ImageIcon } from "lucide-react"
+import {
+  CheckCheckIcon,
+  CircleDot,
+  Crop,
+  FlipHorizontal,
+  ImageIcon,
+  XCircleIcon,
+} from "lucide-react"
 
 async function handleFileInput(): Promise<string[]> {
   return new Promise((res, rej) => {
@@ -116,6 +123,74 @@ export function registerImageActions() {
           ...transform,
           isFlipped: !transform.isFlipped,
         })
+      }
+    },
+  })
+}
+
+export function registerCropAction() {
+  toolbarRegistry.registerGroup({
+    id: "crop",
+    label: "Crop",
+    order: 4,
+  })
+
+  toolbarRegistry.registerAction("image", {
+    id: "crop-rectangular",
+    label: "Rectangular Crop",
+    icon: Crop,
+    group: "crop",
+    order: 0,
+    isVisible(obj) {
+      const condition = obj instanceof ImageObject && !obj.isCropping()
+      console.log("is-crop--action-visible", condition)
+      return condition
+    },
+    handler(obj) {
+      if (obj instanceof ImageObject) {
+        obj.startCrop("rectangular")
+      }
+    },
+  })
+
+  toolbarRegistry.registerAction("image", {
+    id: "crop-circular",
+    label: "Circular Crop",
+    icon: CircleDot,
+    group: "crop",
+    order: 1,
+    isVisible: (obj) => obj instanceof ImageObject && !obj.isCropping(),
+    handler: (obj) => {
+      if (obj instanceof ImageObject) {
+        obj.startCrop("circular")
+      }
+    },
+  })
+
+  toolbarRegistry.registerAction("image", {
+    id: "crop-apply",
+    label: "Apply Crop",
+    icon: CheckCheckIcon,
+    group: "crop",
+    order: 2,
+    isVisible: (obj) => obj instanceof ImageObject && obj.isCropping(),
+    handler: (obj) => {
+      if (obj instanceof ImageObject) {
+        obj.applyCrop()
+      }
+    },
+  })
+
+  toolbarRegistry.registerAction("image", {
+    id: "crop-cancel",
+    label: "Cancel Crop",
+    icon: XCircleIcon,
+    group: "crop",
+    order: 3,
+    isVisible: (obj) => obj instanceof ImageObject && obj.isCropping(),
+    handler: (obj) => {
+      if (obj instanceof ImageObject) {
+        obj.cancelCrop()
       }
     },
   })

@@ -1,55 +1,68 @@
 import { BaseCommand } from "@/lib/canvas/commands/base"
 import { ImageObject } from "@/lib/canvas/objects/image"
-import { CropMode, CropResult } from "@/types"
 
-export class CropCommand<T extends CropMode> extends BaseCommand {
+export class CropCommand extends BaseCommand {
   readonly type = "crop"
-
   private previousState: {
-    imgData: string
+    imageData: string
     width: number
     height: number
+  }
+  private newState: {
+    imageData: string | null
+    width: number | null
+    height: number | null
+  } = {
+    imageData: null,
+    width: null,
+    height: null,
   }
 
   constructor(
     private readonly imageObject: ImageObject,
-    private readonly cropResult: CropResult<T>,
     debug: boolean = false
   ) {
     super(imageObject.id, debug)
 
-    const size = imageObject.getOriginalSize()
-
     this.previousState = {
-      imgData: imageObject.getImageData(),
-      width: size.width,
-      height: size.height,
+      imageData: imageObject.getImageData(),
+      width: imageObject.getOriginalSize().width,
+      height: imageObject.getOriginalSize().height,
     }
-
-    this.log("CropCommand initialized", {
-      objectId: imageObject.id,
-      cropResult,
-      previousState: this.previousState,
-    })
   }
 
   execute(): void {
-    this.log("Executing CropCommand", {
-      cropResult: this.cropResult,
-    })
+    this.newState = {
+      imageData: this.imageObject.getImageData(),
+      width: this.imageObject.getOriginalSize().width,
+      height: this.imageObject.getOriginalSize().height,
+    }
 
-    this.imageObject.applyCrop(this.cropResult)
+    this.log("Executing Crop Command", {
+      previousState: this.previousState,
+      newState: this.newState,
+    })
   }
 
   undo(): void {
-    this.log("Undoing CropCommand", {
-      previousState: this.previousState,
-    })
+    this.log("Undoing Crop Command")
 
     this.imageObject.restoreFromData(
-      this.previousState.imgData,
+      this.previousState.imageData,
       this.previousState.width,
       this.previousState.height
+    )
+  }
+
+  redo(): void {
+    if (!this.newState.imageData) return
+
+    this.log("Redoing Crop Command")
+
+    this.imageObject.restoreFromData(
+      this.newState.imageData,
+      this.newState.width!,
+      this.newState.height!
     )
   }
 }

@@ -41,7 +41,7 @@ export class InteractionManager {
 
     this.commandProcessor = new CanvasInteractionCommandProcessor({
       debug: opts.debug,
-      maxUndoStackSize: 100,
+      maxUndoStackSize: 20,
     })
 
     this.camera = opts.camera

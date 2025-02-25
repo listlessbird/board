@@ -12,11 +12,13 @@ import {
 import {
   registerGlobalImgActions,
   registerImageActions,
+  registerCropAction,
 } from "@/lib/canvas/toolbar/img-actions"
 import { toolbarRegistry } from "@/lib/canvas/toolbar/toolbar-registry"
 import { Toolbar } from "@/components/canvas/toolbar"
 import { KeyboardShortcuts } from "@/lib/constants"
 import { AddCommand } from "@/lib/canvas/commands/add-command"
+import { ImageObject } from "@/lib/canvas/objects/image"
 
 export function Canvas() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -57,16 +59,17 @@ export function Canvas() {
 
   const selectedObject = useCanvasSelection(selectionManager!)
 
-  const { undo, redo, deleteObject, setObjectsCallback } = useCanvasCommands({
-    objects,
-    selectionManager: selectionManager!,
-    interactionManager: interactionManager!,
-    onUpdate: () => {
-      controller?.render()
-    },
-    camera: camera!,
-    debug: isDebug,
-  })
+  const { undo, redo, deleteObject, setObjectsCallback, handleApplyCrop } =
+    useCanvasCommands({
+      objects,
+      selectionManager: selectionManager!,
+      interactionManager: interactionManager!,
+      onUpdate: () => {
+        controller?.render()
+      },
+      camera: camera!,
+      debug: isDebug,
+    })
 
   useEffect(() => {
     setObjectsCallback(updateCanvasObjects)
@@ -83,6 +86,7 @@ export function Canvas() {
 
     registerTextActions()
     registerImageActions()
+    registerCropAction()
     registerTextGlobalActions(canvasRef.current, addObject)
     registerGlobalImgActions(canvasRef.current, addObject)
 
@@ -203,6 +207,17 @@ export function Canvas() {
           controller.render()
         }
       }
+
+      // crop
+
+      if (selectedObject && selectedObject instanceof ImageObject) {
+        if (e.key === KeyboardShortcuts.CROP) {
+          e.preventDefault()
+          console.log("starting crop mode")
+          selectedObject.startCrop("rectangular")
+          controller?.render()
+        }
+      }
     }
 
     window.addEventListener("keydown", handleKeyboard)
@@ -217,6 +232,7 @@ export function Canvas() {
     camera,
     selectionManager,
     isDebug,
+    handleApplyCrop,
   ])
 
   useEffect(() => {

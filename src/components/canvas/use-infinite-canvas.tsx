@@ -79,12 +79,12 @@ export function useInfiniteCanvas({
       camera: controller.camera,
       transformManager: transformManagerRef.current!,
       getObjectAtPoint: (point) => {
-        console.log("Runnign getObjectAtPoint from effect")
-        console.table({
-          zoom: controller.camera.zoom,
-          point,
-          objects: [...objectsRef.current],
-        })
+        // console.log("Runnign getObjectAtPoint from effect")
+        // console.table({
+        //   zoom: controller.camera.zoom,
+        //   point,
+        //   objects: [...objectsRef.current],
+        // })
         for (let i = objectsRef.current.length - 1; i >= 0; i--) {
           const obj = objectsRef.current[i]
           if (obj.containsPoint(point, controller.camera)) {

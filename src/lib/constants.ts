@@ -6,4 +6,5 @@ export const KeyboardShortcuts = {
   PASTE: "v",
   CUT: "x",
   SELECT_ALL: "a",
+  CROP: "c",
 } as const

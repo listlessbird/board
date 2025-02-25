@@ -140,7 +140,7 @@ export function registerCropAction() {
     label: "Rectangular Crop",
     icon: Crop,
     group: "crop",
-    order: 0,
+    order: 1,
     isVisible(obj) {
       const condition = obj instanceof ImageObject && !obj.isCropping()
       console.log("is-crop--action-visible", condition)
@@ -158,7 +158,7 @@ export function registerCropAction() {
     label: "Circular Crop",
     icon: CircleDot,
     group: "crop",
-    order: 1,
+    order: 2,
     isVisible: (obj) => obj instanceof ImageObject && !obj.isCropping(),
     handler: (obj) => {
       if (obj instanceof ImageObject) {
@@ -172,7 +172,7 @@ export function registerCropAction() {
     label: "Apply Crop",
     icon: CheckCheckIcon,
     group: "crop",
-    order: 2,
+    order: 3,
     isVisible: (obj) => obj instanceof ImageObject && obj.isCropping(),
     handler: (obj) => {
       if (obj instanceof ImageObject) {
@@ -186,7 +186,7 @@ export function registerCropAction() {
     label: "Cancel Crop",
     icon: XCircleIcon,
     group: "crop",
-    order: 3,
+    order: 4,
     isVisible: (obj) => obj instanceof ImageObject && obj.isCropping(),
     handler: (obj) => {
       if (obj instanceof ImageObject) {

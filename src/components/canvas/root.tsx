@@ -84,15 +84,19 @@ export function Canvas() {
   useEffect(() => {
     if (!canvasRef.current) return
 
+    registerCropAction()
     registerTextActions()
     registerImageActions()
-    registerCropAction()
     registerTextGlobalActions(canvasRef.current, addObject)
     registerGlobalImgActions(canvasRef.current, addObject)
 
     console.log("Actions registered:", {
       global: toolbarRegistry.getGlobalActions(),
       groups: toolbarRegistry.getGroups(),
+      imageActions: toolbarRegistry.getObjectActions(
+        "image",
+        new ImageObject("", { x: 0, y: 0 })
+      ),
     })
 
     setActionsReady(true)

@@ -116,6 +116,11 @@ export class ImageObject extends BaseObject {
   }
 
   isCropping(): boolean {
+    console.log({
+      cropper: this.cropper,
+      cropState: this.cropper?.getCropState(),
+    })
+
     return this.cropper !== null && this.cropper.getCropState() !== null
   }
 

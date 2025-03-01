@@ -33,16 +33,20 @@ export function Toolbar<T extends BaseObject>({
   const renderActionButton = (
     a: GlobalToolbarAction | ObjectToolbarAction<T>,
     obj?: T
-  ) => (
-    <button
-      key={a.id}
-      onClick={() => onAction(a.id, obj)}
-      className="p-2 hover:bg-slate-700 rounded-md text-white flex items-center gap-2"
-      title={a.label}
-    >
-      {a.icon && <a.icon className="size-4" />}
-    </button>
-  )
+  ) => {
+    // console.log("Rendering action button:", a.id, obj)
+
+    return (
+      <button
+        key={a.id}
+        onClick={() => onAction(a.id, obj)}
+        className="p-2 hover:bg-slate-700 rounded-md text-white flex items-center gap-2"
+        title={a.label}
+      >
+        {a.icon && <a.icon className="size-4" />}
+      </button>
+    )
+  }
 
   return (
     <div className="fixed top-4 left-1/2 -translate-x-1/2 bg-slate-800 rounded-lg shadow-lg p-2">
@@ -59,6 +63,7 @@ export function Toolbar<T extends BaseObject>({
         {/* object specific actions */}
         {objectActions.length > 0 &&
           groups.map((g) => {
+            console.log("Rendering group:", g.id)
             const groupActions = objectActions.filter((a) => a.group === g.id)
             if (groupActions.length === 0) return null
             return (
